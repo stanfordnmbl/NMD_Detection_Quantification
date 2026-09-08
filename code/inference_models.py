@@ -6,7 +6,7 @@ CSVs without retraining. For run <run-name> it reads the fold models under
 runs/<run-name>/models/ and writes, into runs/<run-name>/csvs/:
 
     test_severity_transformer_<run-name>.csv   transformer ensemble + per-fold, held-out test
-    oof_validation_severity_transformer.csv    transformer out-of-fold (validation) severity
+    oof_validation_severity_transformer_<run-name>.csv    transformer out-of-fold (validation) severity
     test_severity_svm_<run-name>.csv           SVM ensemble + per-fold, held-out test
     test_severity_mlp_<run-name>.csv           MLP ensemble + per-fold, held-out test
 
@@ -41,7 +41,7 @@ def main():
             "                  from runs/<run-name>/models/ and writes to\n"
             "                  runs/<run-name>/csvs/:\n"
             "                    test_severity_transformer_<run-name>.csv\n"
-            "                    oof_validation_severity_transformer.csv\n"
+            "                    oof_validation_severity_transformer_<run-name>.csv\n"
             "                    test_severity_svm_<run-name>.csv\n"
             "                    test_severity_mlp_<run-name>.csv\n"
             "                  Train the run first with train_models.py.\n\n"
@@ -69,7 +69,7 @@ def main():
     tm.OUTPUT_DIR = os.path.join(RUN_DIR, "models")   # -> cv_models_svm / cv_models_mlp
     tm.CSV_DIR    = os.path.join(RUN_DIR, "csvs")     # -> test_severity_{svm,mlp}_<run>.csv
     tm.RUN_TAG    = args.run_name
-    oof_csv       = os.path.join(RUN_DIR, "csvs", "oof_validation_severity_transformer.csv")
+    oof_csv       = os.path.join(RUN_DIR, "csvs", f"oof_validation_severity_transformer_{args.run_name}.csv")
 
     # Graceful validation: fail with an actionable message, not a traceback.
     if not os.path.isdir(dataset_root):
@@ -101,7 +101,7 @@ def main():
 
     # Transformer: held-out test severity + out-of-fold validation severity.
     tm.run_test_inference(test, demo_df)                 # -> test_severity_transformer_<run>.csv
-    tm.compute_oof_continuous(samples, out_csv=oof_csv)  # -> oof_validation_severity_transformer.csv
+    tm.compute_oof_continuous(samples, out_csv=oof_csv)  # -> oof_validation_severity_transformer_<run-name>.csv
 
     # SVM / MLP baselines: held-out test severity.
     for name in tm.MODELS:                               # svm, mlp

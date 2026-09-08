@@ -33,5 +33,5 @@ dependencies:
       - matplotlib==3.9.4
       - seaborn==0.13.2
       - joblib==1.5.3
-      - torch==2.8.0
+      - torch==2.2.2   # last torch with wheels for all platforms incl. Intel macOS (x86_64)
       - zenodo_get

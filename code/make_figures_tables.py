@@ -1084,7 +1084,7 @@ if __name__ == "__main__":
             "                  Table 2).\n"
             "  --run-name      Name of a run under runs/. Reads\n"
             "                    runs/<run-name>/csvs/test_severity_transformer_<run-name>.csv\n"
-            "                    runs/<run-name>/csvs/oof_validation_severity_transformer.csv\n"
+            "                    runs/<run-name>/csvs/oof_validation_severity_transformer_<run-name>.csv\n"
             "                    runs/<run-name>/models/cv_preds_transformer/\n"
             "                  and writes\n"
             "                    runs/<run-name>/results/figures/   (fig2-5)\n"
@@ -1107,7 +1107,7 @@ if __name__ == "__main__":
     MODEL_DIR   = os.path.join(RUN_DIR, "models", "cv_models_transformer")
     CV_PRED_DIR = os.path.join(RUN_DIR, "models", "cv_preds_transformer")
     TEST_CSV    = os.path.join(RUN_DIR, "csvs", f"test_severity_transformer_{args.run_name}.csv")
-    OOF_CSV     = os.path.join(RUN_DIR, "csvs", "oof_validation_severity_transformer.csv")
+    OOF_CSV     = os.path.join(RUN_DIR, "csvs", f"oof_validation_severity_transformer_{args.run_name}.csv")
     FIG_DIR     = os.path.join(RUN_DIR, "results", "figures")
     OUT_DIR     = os.path.join(RUN_DIR, "results", "tables")
 
