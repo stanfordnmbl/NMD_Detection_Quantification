@@ -1,0 +1,11 @@
+Section,Measure,Transformer,SVM,MLP
+Spearman ρ with severity score (sign aligned: higher score = worse function),ACTIVLIM  (n=61),0.79,0.67,0.71
+Spearman ρ with severity score (sign aligned: higher score = worse function),TUG-cone  (n=60),0.67,0.69,0.65
+Spearman ρ with severity score (sign aligned: higher score = worse function),5xSTS  (n=63),0.56,0.59,0.58
+Spearman ρ with severity score (sign aligned: higher score = worse function),10m walk time  (n=67),0.56,0.53,0.52
+Spearman ρ with severity score (sign aligned: higher score = worse function),10m run time  (n=67),0.74,0.73,0.70
+Δρ vs Transformer  [95% CI],ACTIVLIM,—,"-0.11 [-0.23, -0.00]*","-0.08 [-0.23, +0.05]"
+Δρ vs Transformer  [95% CI],TUG-cone,—,"+0.02 [-0.11, +0.16]","-0.02 [-0.17, +0.14]"
+Δρ vs Transformer  [95% CI],5xSTS,—,"+0.03 [-0.11, +0.17]","+0.02 [-0.13, +0.15]"
+Δρ vs Transformer  [95% CI],10m walk time,—,"-0.02 [-0.18, +0.12]","-0.04 [-0.18, +0.11]"
+Δρ vs Transformer  [95% CI],10m run time,—,"-0.01 [-0.11, +0.10]","-0.04 [-0.16, +0.07]"

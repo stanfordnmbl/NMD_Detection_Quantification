@@ -1,0 +1,34 @@
+Kinematic Parameter,Segment
+Pelvis tilt,Pelvis
+Pelvis list,Pelvis
+Pelvis rotation,Pelvis
+Pelvis anterior/posterior translation,Pelvis
+Pelvis vertical translation,Pelvis
+Pelvis mediolateral translation,Pelvis
+Hip flexion (R),Lower limb
+Hip adduction (R),Lower limb
+Hip rotation (R),Lower limb
+Knee flexion (R),Lower limb
+Ankle dorsiflexion (R),Lower limb
+Subtalar angle (R),Lower limb
+MTP angle (R),Lower limb
+Hip flexion (L),Lower limb
+Hip adduction (L),Lower limb
+Hip rotation (L),Lower limb
+Knee flexion (L),Lower limb
+Ankle dorsiflexion (L),Lower limb
+Subtalar angle (L),Lower limb
+MTP angle (L),Lower limb
+Lumbar extension,Trunk
+Lumbar bending,Trunk
+Lumbar rotation,Trunk
+Arm flexion (R),Upper limb
+Arm adduction (R),Upper limb
+Arm rotation (R),Upper limb
+Elbow flexion (R),Upper limb
+Forearm pronation (R),Upper limb
+Arm flexion (L),Upper limb
+Arm adduction (L),Upper limb
+Arm rotation (L),Upper limb
+Elbow flexion (L),Upper limb
+Forearm pronation (L),Upper limb
