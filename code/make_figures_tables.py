@@ -375,7 +375,7 @@ def select_threshold():
     return thr_star, y_oof, p_oof
  
  
-def compute_fold_metrics(thr_star, y_oof, p_oof, df, verbose=True):
+def compute_fold_metrics(thr_star, y_oof, p_oof, df):
     val_rows = []
     for fold in range(1, K+1):
         d = np.load(os.path.join(CV_PRED_DIR, f"cv_fold{fold}_val_preds.npz"),
@@ -404,15 +404,7 @@ def compute_fold_metrics(thr_star, y_oof, p_oof, df, verbose=True):
         })
     test_df    = pd.DataFrame(test_rows)
     p_test_ens = df["prob_disease_mean"].astype(float).to_numpy()
- 
-    if verbose:
-        print(f"\n  per-fold mean (5 CV models)   Val [95% CI]          Test [95% CI]")
-        for m in METRICS:
-            v_mu, v_lo, v_hi = bootstrap_mean_ci(val_df[m].values,  seed=1)
-            t_mu, t_lo, t_hi = bootstrap_mean_ci(test_df[m].values, seed=2)
-            print(f"    {m:<6} {v_mu:.3f} [{v_lo:.3f}-{v_hi:.3f}]   "
-                  f"{t_mu:.3f} [{t_lo:.3f}-{t_hi:.3f}]")
- 
+
     return val_df, test_df, y_true, p_test_ens
  
  
@@ -819,8 +811,7 @@ def generate_figures():
     threshold_z = (logit_thr - ctl_mean) / ctl_std
 
     print(f"\n{'-'*66}\n  FIGURE 2  -  Classification performance\n{'-'*66}")
-    val_df, test_df, y_true, p_test_ens = compute_fold_metrics(thr_star, y_oof, p_oof, df,
-                                                               verbose=True)
+    val_df, test_df, y_true, p_test_ens = compute_fold_metrics(thr_star, y_oof, p_oof, df)
     plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star)
 
     print(f"\n{'-'*66}\n  FIGURE 3  -  Severity score distribution (held-out test + OOF)\n{'-'*66}")

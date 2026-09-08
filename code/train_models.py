@@ -1,44 +1,43 @@
 """
-train_transformer.py
---------------------
-Cross-validation training loop for the UE-aware VisitTransformer. Trains the 5
-GroupKFold fold models on the train_val split and saves each fold's checkpoint,
-normalizer, and held-out validation ids/preds under runs/<run-name>/models/.
+train_models.py
+---------------
+Train BOTH models used in the paper on the de-identified OpenCap dataset:
+the UE-aware VisitTransformer and the SVM / MLP feature-based baselines.
 
-This script writes MODELS ONLY. It does not emit the prediction CSVs — the test
-and OOF severity CSVs are produced by a separate forward pass:
+A single 5-fold GroupKFold split (grouped by participant) is computed once and
+reused for every model, so the transformer and the baselines are cross-validated
+on identical folds. The held-out test set (the demographics `split` column) never
+enters cross-validation.
 
-    python inference_transformer.py --dataset ... --demographics ... --run-name ...
+This script writes MODELS ONLY, under runs/<run-name>/models/:
+    cv_models_transformer/  cv_preds_transformer/   -- transformer fold models + val ids
+    cv_models_svm/  cv_models_mlp/                   -- baseline fold pipelines (.pkl)
 
-which reads the fold models saved here and writes runs/<run-name>/csvs/. Keeping
-the CSVs out of training means predictions can be regenerated from the released
-models without retraining, and there is a single code path that writes them.
-
-All npz files include digbi_id and date alongside y and p so predictions can
-always be traced back to specific participants and visits.
-
-Saved artifacts per fold (under runs/<run-name>/models/):
-    cv_models_transformer/visit_transformer_cv_fold{k}.pt  -- best checkpoint
-    cv_models_transformer/normalizer_fold{k}.pt            -- per-fold normalizer
-    cv_preds_transformer/cv_fold{k}_val_ids.npz            -- val subid, visit
-    cv_preds_transformer/cv_fold{k}_val_preds.npz          -- y, p, subid, visit
-
-(cv_fold{k}_train_ids.npz and cv_oof_preds.npz are intentionally NOT written —
-they are redundant with the val-id / per-fold val-pred files and are never read
-by the reproduction pipeline, so retraining produces exactly the released file
-set.)
+The prediction CSVs are produced separately by inference_models.py.
 """
 
 import os
+import re
+import glob
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import joblib
 from torch.utils.data import DataLoader
 from sklearn.model_selection import GroupKFold
-from sklearn.metrics import roc_auc_score, average_precision_score, balanced_accuracy_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import (roc_auc_score, average_precision_score,
+                             balanced_accuracy_score)
+from sklearn.utils.class_weight import compute_sample_weight
 
-from dataset import VisitDataset, collate_visits, build_task_vocab, fit_normalizer, fit_normalizer_per_task
+from dataset import (VisitDataset, collate_visits, build_task_vocab,
+                     fit_normalizer, fit_normalizer_per_task,
+                     filter_and_clean_tasks, build_participant_dict,
+                     flatten_visits_for_model, load_release_samples)
 from transformer_model import VisitTransformer
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -59,7 +58,7 @@ EXPECTED_COLUMNS = [
 # "global"   -- pool all tasks and participants; one mean/std per joint.
 # "per_task" -- separate mean/std per joint per task type.
 # The paper uses "global".
-NORM_MODE = "global"
+TF_NORM_MODE = "global"
 
 # The model is always the upper-extremity-aware VisitTransformer: the base
 # VisitTransformer architecture trained with UEAwareVisitDataset, which masks the
@@ -69,7 +68,7 @@ NORM_MODE = "global"
 
 DEVICE       = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
 K            = 5
-BATCH_SIZE   = 4
+TF_BATCH_SIZE   = 4
 LR           = 1e-3
 WEIGHT_DECAY = 1e-4
 MAX_EPOCHS   = 20
@@ -120,7 +119,7 @@ class UEAwareVisitDataset(VisitDataset):
 
 def make_loader(samples, task_vocab, norm, shuffle=False):
     ds = UEAwareVisitDataset(samples, task_vocab=task_vocab, normalize=norm)
-    return DataLoader(ds, batch_size=BATCH_SIZE, shuffle=shuffle,
+    return DataLoader(ds, batch_size=TF_BATCH_SIZE, shuffle=shuffle,
                       collate_fn=collate_visits, num_workers=0)
 
 
@@ -218,7 +217,7 @@ def collect_predictions(model, loader):
 
 # ── Main CV loop ───────────────────────────────────────────────────────────────
 
-def run_cross_validation(train_samples, val_samples):
+def run_cross_validation(trainval_samples, folds):
     """
     Five-fold GroupKFold cross-validation on the combined train+val set.
 
@@ -238,22 +237,19 @@ def run_cross_validation(train_samples, val_samples):
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(PRED_DIR,  exist_ok=True)
 
-    print(f"\nmodel: UE-aware VisitTransformer  |  norm: {NORM_MODE}")
+    print(f"\nmodel: UE-aware VisitTransformer  |  norm: {TF_NORM_MODE}")
     print(f"  MODEL_DIR = {MODEL_DIR}")
     print(f"  PRED_DIR  = {PRED_DIR}")
 
-    trainval_samples = list(train_samples) + list(val_samples)
-    groups    = np.array([s["digbi_id"] for s in trainval_samples], dtype=object)
-    gkf       = GroupKFold(n_splits=K)
+    # folds (GroupKFold by participant) are computed once in __main__ and
+    # shared with the SVM/MLP baselines so every model uses identical folds.
 
     cv_rows = []
     oof_y, oof_p, oof_ids, oof_dates, oof_fold = [], [], [], [], []
 
     print(f"\n==== {K}-fold GroupKFold CV  (group=digbi_id, test untouched) ====")
 
-    for fold, (idx_tr, idx_va) in enumerate(
-        gkf.split(np.zeros(len(groups)), groups=groups), start=1
-    ):
+    for fold, (idx_tr, idx_va) in enumerate(folds, start=1):
         print(f"\n--- Fold {fold}/{K} ---")
 
         fold_train = [trainval_samples[i] for i in idx_tr]
@@ -282,7 +278,7 @@ def run_cross_validation(train_samples, val_samples):
 
         # Fit vocab and normalizer on training split only
         task_vocab = build_task_vocab(fold_train)
-        if NORM_MODE == "per_task":
+        if TF_NORM_MODE == "per_task":
             print(f"  Fitting per-task normalizer for fold {fold}...")
             norm = fit_normalizer_per_task(fold_train, max_files=None)
         else:
@@ -398,7 +394,7 @@ def run_test_inference(test_samples, demo_df):
 
     test_loader = DataLoader(
         UEAwareVisitDataset(test_samples, task_vocab=task_vocab, normalize=norm),
-        batch_size=BATCH_SIZE, shuffle=False,
+        batch_size=TF_BATCH_SIZE, shuffle=False,
         collate_fn=collate_visits, num_workers=0
     )
 
@@ -481,7 +477,7 @@ def compute_oof_continuous(samples, out_csv=None):
             os.path.join(MODEL_DIR, f"visit_transformer_cv_fold{fold}.pt"), map_location=DEVICE))
         model.eval()
         loader = DataLoader(UEAwareVisitDataset(vs, task_vocab=task_vocab, normalize=norm),
-                            batch_size=BATCH_SIZE, shuffle=False,
+                            batch_size=TF_BATCH_SIZE, shuffle=False,
                             collate_fn=collate_visits, num_workers=0)
         with torch.no_grad():
             for X, M, task_ids, visit_idx, labels, did, dt in loader:
@@ -500,79 +496,396 @@ def compute_oof_continuous(samples, out_csv=None):
     return out
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  Feature extraction (formerly mlp_svm_features.py)
+# ──────────────────────────────────────────────────────────────────────────────
+# Summary-statistic featurization of kinematic time series for the SVM/MLP
+# baselines. Behaviour is byte-for-byte equivalent to the original notebook.
+#
+# FEATURE LAYOUT  (5 * F + 1 = 166 for F = 33 joints)
+#     mean[F]   per-joint mean
+#     std[F]    per-joint standard deviation
+#     range[F]  per-joint max - min
+#     rmsv[F]   per-joint RMS of the first difference   (movement speed)
+#     iqr[F]    per-joint interquartile range
+#     jerk      ONE scalar: mean |second difference| across all joints and frames
+#
+# Velocity/acceleration are plain per-frame differences (not divided by dt);
+# dataset resampling to a uniform rate makes that a constant StandardScaler
+# removes. collate_visits() zero-pads and the mask marks valid frames, which is
+# honoured so padding does not bias means or derivatives.
+from scipy.stats import iqr
+
+# Optional left-right asymmetry block. Off by default: with ADD_ASYMMETRY False
+# the featurization is the original notebook version. Enable per-run without
+# editing the file:  FEATURE_VARIANT=asym python train_mlp_svm.py
+ADD_ASYMMETRY = os.environ.get("FEATURE_VARIANT", "base").lower() == "asym"
+
+# Keep in sync with dataset.EXPECTED_COLUMNS.
+JOINT_NAMES = list(EXPECTED_COLUMNS)
+PER_JOINT_STATS = ["mean", "std", "range", "rms_velocity", "iqr"]
+
+
+def bilateral_pairs(joint_names=None):
+    """[(base_name, right_index, left_index)] for every _r/_l pair."""
+    names = JOINT_NAMES if joint_names is None else joint_names
+    idx   = {n: i for i, n in enumerate(names)}
+    pairs = []
+    for n in names:
+        if n.endswith("_r"):
+            base = n[:-2]
+            if f"{base}_l" in idx:
+                pairs.append((base, idx[n], idx[f"{base}_l"]))
+    return pairs
+
+
+N_PAIRS = len(bilateral_pairs())
+
+
+def visit_feature_dim(n_joints):
+    """Width of the vector returned by task_features / aggregate_tasks_to_visit."""
+    d = 5 * n_joints + 1
+    if ADD_ASYMMETRY:
+        d += len(PER_JOINT_STATS) * N_PAIRS
+    return d
+
+
+def feature_names(joint_names=None):
+    """Names aligned with the feature vector, for importance reporting."""
+    joint_names = JOINT_NAMES if joint_names is None else joint_names
+    names = []
+    for stat in PER_JOINT_STATS:
+        names += [f"{j}__{stat}" for j in joint_names]
+    names.append("global__jerk")
+    if ADD_ASYMMETRY:
+        for stat in PER_JOINT_STATS:
+            names += [f"{base}__asym_{stat}" for base, _r, _l in
+                      bilateral_pairs(joint_names)]
+    return names
+
+
+def task_features(x_np, m_np):
+    """x_np: [L, F] kinematics, m_np: [L] boolean mask (True=valid).
+    Returns a 1D feature vector for this task. Trials with < 3 valid frames
+    return an all-zero vector."""
+    sel = m_np.astype(bool)
+    if sel.sum() < 3:  # too short, return zeros to be safe
+        F = x_np.shape[1]
+        return np.zeros(visit_feature_dim(F), dtype=np.float32)
+
+    x = x_np[sel]                     # [L', F]
+    v = np.diff(x, axis=0)            # velocity
+    mean = x.mean(0)
+    std  = x.std(0)
+    rng  = x.max(0) - x.min(0)
+    rmsv = np.sqrt((v**2).mean(0))
+    iqrv = iqr(x, axis=0, rng=(25, 75))
+    jerk = np.abs(np.diff(v, axis=0)).mean() if v.shape[0] > 1 else 0.0
+    parts = [mean, std, rng, rmsv, iqrv, [jerk]]
+
+    if ADD_ASYMMETRY:
+        # |left - right| for each per-joint statistic, computed per task (before
+        # aggregation) and absolute (which side is affected varies by participant).
+        stats = {"mean": mean, "std": std, "range": rng,
+                 "rms_velocity": rmsv, "iqr": iqrv}
+        for stat in PER_JOINT_STATS:
+            arr = stats[stat]
+            parts.append(np.array([abs(arr[ri] - arr[li])
+                                   for _b, ri, li in bilateral_pairs()]))
+
+    return np.concatenate(parts).astype(np.float32)
+
+
+def aggregate_tasks_to_visit(task_feat_list, mode="max", topk=2):
+    """task_feat_list: list of [D] arrays for one visit.
+    mode "max" (elementwise max across tasks; partly encodes which tasks were
+    completed) or "topk" (mean of the top-k whole tasks by L2 norm)."""
+    Z = np.stack(task_feat_list, axis=0) if len(task_feat_list) else None
+    if Z is None:
+        return None
+    if mode == "max":
+        return Z.max(axis=0)
+    elif mode == "topk":
+        k = min(topk, Z.shape[0])
+        idx = np.argsort(np.linalg.norm(Z, axis=1))[::-1][:k]
+        return Z[idx].mean(axis=0)
+    else:
+        return Z.mean(axis=0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+
+VARIANT_SUFFIX = "_asym" if ADD_ASYMMETRY else ""
+
+# ── Config defaults — set from the CLI in __main__ ────────────────────────────
+DS_ROOT     = None    # dataset root (sub-*/visit-*/ses-*/Kinematics/*.mot)
+DEMO_CSV    = None    # participant-info CSV (subid, visit, diag, split, ...)
+OUTPUT_DIR  = None    # runs/<run-name>/models  -> cv_models_svm / cv_models_mlp
+CSV_DIR     = None    # runs/<run-name>/csvs    -> test_severity_{svm,mlp}_<run>.csv
+RUN_TAG     = None    # run-name tag used in the CSV filenames
+
+K          = 5
+SVM_NORM_MODE  = "per_task"     # per-task feature normalization for the baselines
+AGG_MODE   = "max"
+AGG_TOPK   = 2
+SVM_BATCH_SIZE = 16
+SEED       = 42
+
+
+# ── Model factories (class-balanced, as in the original) ──────────────────────
+def make_svm():
+    return make_pipeline(
+        StandardScaler(),
+        SVC(kernel="rbf", C=1.0, gamma="scale",
+            class_weight="balanced", probability=True, random_state=SEED))
+
+
+def make_mlp():
+    return make_pipeline(
+        StandardScaler(),
+        MLPClassifier(hidden_layer_sizes=(128, 64), activation="relu",
+                      max_iter=300, early_stopping=True, validation_fraction=0.1,
+                      learning_rate_init=1e-3, random_state=SEED))
+
+
+MODELS = {"svm": make_svm, "mlp": make_mlp}
+
+
+def fit_model(name, X, y, rng):
+    clf = MODELS[name]()
+    if name == "mlp":                       # MLP has no class_weight -> oversample
+        w   = compute_sample_weight("balanced", y)
+        idx = rng.choice(len(y), size=len(y), replace=True, p=w / w.sum())
+        clf.fit(X[idx], y[idx])
+    else:
+        clf.fit(X, y)
+    return clf
+
+
+def prob_to_logit(p, eps=1e-6):
+    p = np.clip(p, eps, 1 - eps)
+    return np.log(p / (1 - p))
+
+
+def norm_key(did, date):
+    return (str(did).strip(), str(date).strip())
+
+
+# ── Data loading from the public dataset (keyed subid/visit) ──────────────────
+def load_samples():
+    """Visit samples from the public dataset (keyed subid/visit), via the shared
+    loader in dataset.py."""
+    from dataset import load_release_samples
+    return load_release_samples(DS_ROOT, DEMO_CSV)
+
+
+def split_test(samples, demo_df):
+    """Held-out test set from the demographics 'split' column ('test' vs
+    'train_val') — the same 73-visit test set the released models used, and
+    fully independent of any transformer run."""
+    split_map = {(str(a), int(b)): str(sp).strip().lower()
+                 for a, b, sp in zip(demo_df["subid"], demo_df["visit"], demo_df["split"])}
+    is_test = lambda s: split_map.get((str(s["digbi_id"]), int(s["date"])),
+                                      "train_val") == "test"
+    test     = [s for s in samples if is_test(s)]
+    trainval = [s for s in samples if not is_test(s)]
+    print(f"Held-out test set: {len(test)} visits "
+          f"({len(set(s['digbi_id'] for s in test))} participants)")
+    print(f"Train+val pool:    {len(trainval)} visits "
+          f"({len(set(s['digbi_id'] for s in trainval))} participants)")
+    return trainval, test
+
+
+def get_folds(trainval):
+    """Own participant-grouped 5-fold split (GroupKFold by subject; no leakage,
+    no dependency on the transformer's folds)."""
+    groups = np.array([s["digbi_id"] for s in trainval], dtype=object)
+    return list(GroupKFold(n_splits=K).split(np.zeros(len(groups)), groups=groups))
+
+
+# ── Featurization ─────────────────────────────────────────────────────────────
+def make_feat_loader(samples_list, task_vocab, norm):
+    return DataLoader(VisitDataset(samples_list, task_vocab=task_vocab, normalize=norm),
+                      batch_size=SVM_BATCH_SIZE, shuffle=False,
+                      collate_fn=collate_visits, num_workers=0)
+
+
+@torch.no_grad()
+def build_visit_matrix(loader):
+    Xv, Y, IDs, Dates = [], [], [], []
+    for batch in loader:
+        X, M, task_ids, visit_idx, labels, digbi_ids, dates = batch
+        X = X.cpu().numpy(); M = M.cpu().numpy().astype(bool)
+        visit_idx = visit_idx.cpu().numpy(); labels = labels.cpu().numpy()
+        B = labels.shape[0]
+        per_visit = [[] for _ in range(B)]
+        for t in range(X.shape[0]):
+            per_visit[int(visit_idx[t])].append(task_features(X[t], M[t]))
+        for b in range(B):
+            vfeat = aggregate_tasks_to_visit(per_visit[b], mode=AGG_MODE, topk=AGG_TOPK)
+            if vfeat is None:
+                vfeat = np.zeros(visit_feature_dim(X.shape[2]), dtype=np.float32)
+            Xv.append(vfeat); Y.append(labels[b]); IDs.append(digbi_ids[b]); Dates.append(dates[b])
+    return (np.stack(Xv).astype(np.float32), np.array(Y).astype(int),
+            np.array(IDs, dtype=object), np.array(Dates, dtype=object))
+
+
+def fit_norm(fold_train):
+    return (fit_normalizer_per_task if SVM_NORM_MODE == "per_task" else fit_normalizer)(
+        fold_train, max_files=None)
+
+
+# ── Main CV loop (models only) ────────────────────────────────────────────────
+def run_baselines(trainval, folds):
+    """Fit + save the SVM/MLP fold models. Models only — the test-severity CSVs
+    are written separately by inference_mlp_svm.py from these saved fold pickles
+    (each pickle carries its pipeline + task_vocab + normalizer)."""
+    rng = np.random.default_rng(SEED)
+    print(f"\nFeature variant: {'base+asym' if ADD_ASYMMETRY else 'base'} "
+          f"(dim/task={visit_feature_dim(33)})\nWriting models to: {OUTPUT_DIR}")
+
+    model_dirs = {}
+    for name in MODELS:
+        model_dirs[name] = os.path.join(OUTPUT_DIR, f"cv_models_{name}{VARIANT_SUFFIX}")
+        os.makedirs(model_dirs[name], exist_ok=True)
+
+    for fold, (idx_tr, idx_va) in enumerate(folds, start=1):
+        print(f"\n--- Fold {fold}/{K} ---")
+        fold_train = [trainval[i] for i in idx_tr]
+        fold_val   = [trainval[i] for i in idx_va]
+        task_vocab = build_task_vocab(fold_train)
+        norm       = fit_norm(fold_train)
+
+        X_tr, y_tr, _, _ = build_visit_matrix(make_feat_loader(fold_train, task_vocab, norm))
+        X_va, y_va, _, _ = build_visit_matrix(make_feat_loader(fold_val,   task_vocab, norm))
+
+        for name in MODELS:
+            clf = fit_model(name, X_tr, y_tr, rng)
+            joblib.dump({"pipeline": clf, "task_vocab": task_vocab, "norm": norm},
+                        os.path.join(model_dirs[name], f"{name}_fold{fold}.pkl"))
+            p_va = clf.predict_proba(X_va)[:, 1]
+            bacc = balanced_accuracy_score(y_va, (p_va >= 0.5).astype(int))
+            au = roc_auc_score(y_va, p_va) if len(np.unique(y_va)) > 1 else np.nan
+            print(f"  {name.upper():<4} val AUROC={au:.3f} bACC={bacc:.3f}")
+
+    print("\nTraining complete. Fold models written under:")
+    for name in MODELS:
+        print(f"  {model_dirs[name]}/")
+    print("To generate the test-severity CSVs, run inference_mlp_svm.py with the "
+          "same --run-name.")
+
+
+def _write_test_csv(name, prob, logit, meta):
+    """Assemble test_severity_{name}_<run>.csv from per-fold probs/logits (keyed
+    subid/visit; diagnosis from participant_info). Used by inference_mlp_svm.py."""
+    y_te, te_ids, te_dates = meta
+    pi = pd.read_csv(DEMO_CSV)
+    diag_map = {(str(a), int(b)): str(dg) for a, b, dg in zip(pi.subid, pi.visit, pi.diag)}
+    df = pd.DataFrame({"subid": [str(i).strip() for i in te_ids],
+                       "visit": [int(d) for d in te_dates],
+                       "true_label": y_te})
+    for f in range(1, K + 1):
+        df[f"prob_disease_f{f}"]    = prob[f]
+        df[f"logit_severity_f{f}"]  = logit[f]
+        df[f"predicted_class_f{f}"] = (np.asarray(prob[f]) >= 0.5).astype(int)
+    df["prob_disease_mean"]   = np.mean([prob[f]  for f in range(1, K + 1)], axis=0)
+    df["logit_severity_mean"] = np.mean([logit[f] for f in range(1, K + 1)], axis=0)
+    df["clinical_diagnosis"]  = [diag_map.get((r.subid, r.visit), "NMD") for r in df.itertuples()]
+    out_csv = os.path.join(CSV_DIR, f"test_severity_{name}{VARIANT_SUFFIX}_{RUN_TAG}.csv")
+    df.to_csv(out_csv, index=False)
+    p_ens = df["prob_disease_mean"].to_numpy()
+    print(f"\n{name.upper()} test ensemble: AUROC={roc_auc_score(y_te, p_ens):.3f} "
+          f"AUPRC={average_precision_score(y_te, p_ens):.3f} "
+          f"bACC={balanced_accuracy_score(y_te, (p_ens >= 0.5).astype(int)):.3f}\n  -> {out_csv}")
+    return df
+
+
+def infer_from_saved(name):
+    """Regenerate test_severity_{name}_<run>.csv from the SAVED fold models (no
+    retraining): each fold's pickle carries its pipeline + task_vocab + norm."""
+    model_dir = os.path.join(OUTPUT_DIR, f"cv_models_{name}{VARIANT_SUFFIX}")
+    samples = load_samples()
+    _, test = split_test(samples, pd.read_csv(DEMO_CSV))
+    prob, logit, meta = {}, {}, None
+    for f in range(1, K + 1):
+        o = joblib.load(os.path.join(model_dir, f"{name}_fold{f}.pkl"))
+        X_te, y_te, te_ids, te_dates = build_visit_matrix(
+            make_feat_loader(test, o["task_vocab"], o["norm"]))
+        p = o["pipeline"].predict_proba(X_te)[:, 1]
+        prob[f], logit[f] = p, prob_to_logit(p)
+        if meta is None:
+            meta = (y_te, te_ids, te_dates)
+    return _write_test_csv(name, prob, logit, meta)
+
+
 if __name__ == "__main__":
     import argparse
-    from dataset import load_release_samples
-
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Train the UE-aware VisitTransformer (5-fold GroupKFold CV) on "
-                    "the de-identified OpenCap dataset. Writes fold MODELS ONLY "
-                    "under runs/<run-name>/models/.",
+        description="Train the UE-aware VisitTransformer and the SVM/MLP baselines "
+                    "on one shared 5-fold GroupKFold split (grouped by participant). "
+                    "Writes MODELS ONLY.",
         epilog=(
             "inputs:\n"
-            "  --dataset       Dataset root containing\n"
-            "                    sub-*/visit-*/ses-*/Kinematics/*.mot\n"
-            "  --demographics  participant-info CSV; must contain columns\n"
-            "                  subid, visit, diag, split. Only train_val visits\n"
-            "                  are used for CV; test visits are held out.\n"
-            "  --run-name      Output identifier. Fold checkpoints, normalizers,\n"
-            "                  and val ids go under runs/<run-name>/models/.\n\n"
-            "next step:\n"
-            "  This script writes no CSVs. Generate the test + OOF severity CSVs\n"
-            "  with inference_transformer.py using the same --run-name.\n\n"
+            "  --dataset       Dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot\n"
+            "  --demographics  participant-info CSV (columns: subid, visit, diag, split)\n"
+            "  --run-name      Output identifier. Fold models go under\n"
+            "                    runs/<run-name>/models/{cv_models_transformer,\n"
+            "                    cv_preds_transformer, cv_models_svm, cv_models_mlp}/\n\n"
+            "The transformer's fold split is computed once and reused for the SVM/MLP\n"
+            "cross-validation, so all models share identical folds. Only train_val\n"
+            "visits are used; test visits are held out. This script writes no CSVs —\n"
+            "generate them with inference_models.py.\n\n"
             "example:\n"
-            "  python train_transformer.py --dataset ~/NMD_OpenCap_DS_v2 \\\n"
+            "  python train_models.py --dataset ~/NMD_OpenCap_DS_v2 \\\n"
             "      --demographics ~/nmd_opencap_participant_info.csv --run-name pretrained\n"))
     ap.add_argument("--dataset", required=True, metavar="DIR",
-                    help="dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot "
-                         "(e.g. ~/NMD_OpenCap_DS_v2)")
+                    help="dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot")
     ap.add_argument("--demographics", required=True, metavar="CSV",
-                    help="participant-info CSV with columns subid, visit, diag, split, ... "
-                         "(e.g. ~/nmd_opencap_participant_info.csv)")
+                    help="participant-info CSV with columns subid, visit, diag, split, ...")
     ap.add_argument("--run-name", required=True, metavar="NAME",
                     help="run identifier; fold models go under runs/<run-name>/models/")
     args = ap.parse_args()
-    dataset_root     = os.path.expanduser(args.dataset)
-    demographics_csv = os.path.expanduser(args.demographics)
 
-    # Graceful validation: fail with an actionable message, not a traceback.
-    if not os.path.isdir(dataset_root):
-        ap.error(f"--dataset: directory not found: {dataset_root}\n"
-                 "Expected a dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot.")
-    if not os.path.isfile(demographics_csv):
-        ap.error(f"--demographics: file not found: {demographics_csv}\n"
-                 "Provide the participant-info CSV (columns: subid, visit, diag, split, ...).")
-
-    # Output layout: runs/<run-name>/{models, csvs}. Reassigning these module-level
-    # names updates the globals the run/inference functions write to.
+    DS_ROOT  = os.path.expanduser(args.dataset)
+    DEMO_CSV = os.path.expanduser(args.demographics)
     REPO       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     RUN_DIR    = os.path.join(REPO, "runs", args.run_name)
     MODEL_DIR  = os.path.join(RUN_DIR, "models", "cv_models_transformer")
     PRED_DIR   = os.path.join(RUN_DIR, "models", "cv_preds_transformer")
+    OUTPUT_DIR = os.path.join(RUN_DIR, "models")   # SVM/MLP dirs made inside run_baselines
+    RUN_TAG    = args.run_name
+
+    # Graceful validation: fail with an actionable message, not a traceback.
+    if not os.path.isdir(DS_ROOT):
+        ap.error(f"--dataset: directory not found: {DS_ROOT}\n"
+                 "Expected a dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot.")
+    if not os.path.isfile(DEMO_CSV):
+        ap.error(f"--demographics: file not found: {DEMO_CSV}\n"
+                 "Provide the participant-info CSV (columns: subid, visit, diag, split, ...).")
+
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(PRED_DIR,  exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     print(f"Run '{args.run_name}'  ->  {RUN_DIR}")
 
-    # Visit samples from the public dataset (keyed subid/visit).
-    samples = load_release_samples(dataset_root, demographics_csv)
-    print(f"Loaded {len(samples)} visit samples from {dataset_root}")
+    samples = load_samples()
+    print(f"Loaded {len(samples)} visit samples from {DS_ROOT}")
+    demo_df = pd.read_csv(DEMO_CSV)
+    trainval, test = split_test(samples, demo_df)
+    print(f"Split (demographics 'split'): train_val={len(trainval)} visits, "
+          f"test={len(test)} visits "
+          f"({len(set(s['digbi_id'] for s in test))} test participants)")
 
-    # Held-out test set / train_val split from the demographics 'split' column.
-    # (We only train on train_val visits; test visits must never enter CV.)
-    demo_df = pd.read_csv(demographics_csv)
-    split_map = {(str(a), int(b)): str(sp).strip().lower()
-                 for a, b, sp in zip(demo_df["subid"], demo_df["visit"], demo_df["split"])}
-    def _is_test(s):
-        return split_map.get((str(s["digbi_id"]), int(s["date"])), "train_val") == "test"
-    test_samples     = [s for s in samples if _is_test(s)]
-    trainval_samples = [s for s in samples if not _is_test(s)]
-    print(f"Split (demographics 'split'): train_val={len(trainval_samples)} visits, "
-          f"test={len(test_samples)} visits "
-          f"({len(set(s['digbi_id'] for s in test_samples))} test participants)")
+    # One GroupKFold split (grouped by participant), shared by all models.
+    folds = get_folds(trainval)
 
-    cv_df, oof_y, oof_p = run_cross_validation(trainval_samples, [])
-    print("\nTraining complete. Fold models + val ids written under "
-          f"{MODEL_DIR} / {PRED_DIR}.\nTo generate the test + OOF severity CSVs, run:"
-          f"\n  python inference_transformer.py --dataset {args.dataset} "
+    print("\n" + "=" * 66 + "\n  Transformer cross-validation\n" + "=" * 66)
+    run_cross_validation(trainval, folds)
+    print("\n" + "=" * 66 + "\n  SVM / MLP baselines (same folds)\n" + "=" * 66)
+    run_baselines(trainval, folds)
+
+    print("\nTraining complete. Fold models written under runs/"
+          f"{args.run_name}/models/.\nGenerate the prediction CSVs with:\n"
+          f"  python inference_models.py --dataset {args.dataset} "
           f"--demographics {args.demographics} --run-name {args.run_name}")
