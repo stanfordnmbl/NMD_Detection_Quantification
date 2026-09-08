@@ -10,11 +10,11 @@ run inference, then build the figures and tables.
 ## 1. Setup
 
 ```
-$ cd [path_to_empty_working_directory]
-$ git clone <REPO_URL> NMD_Detection_Quantification
-$ cd NMD_Detection_Quantification
-$ conda env create -f environment.yml -n nmd-opencap
-$ conda activate nmd-opencap
+cd [path_to_empty_working_directory]
+git clone <REPO_URL> NMD_Detection_Quantification
+cd NMD_Detection_Quantification
+conda env create -f environment.yml -n nmd-opencap
+conda activate nmd-opencap
 ```
 
 The working directory is then organized as:
@@ -38,11 +38,11 @@ Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes
 with the environment; or download the two files from the Zenodo page):
 
 ```
-$ mkdir datadir
-$ cd datadir
-$ zenodo_get -d <ZENODO_DOI>
-$ cd ..
-$ unzip datadir/Neuromuscualr_OpenCap_Dataset.zip -d datadir
+mkdir datadir
+cd datadir
+zenodo_get -d <ZENODO_DOI>
+cd ..
+unzip datadir/Neuromuscualr_OpenCap_Dataset.zip -d datadir
 ```
 
 `datadir/` then contains the demographics CSV and the dataset — one folder per
@@ -97,40 +97,37 @@ Everything lands under `runs/pretrained/`:
 - **`results/supp_figures/`** — **Supp. Fig 1** per-measure distributions.
 - **`results/supp_tables/`** — **Supp. Tables 1–3** (model comparison, convergent validity, kinematic parameters); LaTeX under `latex_tables/`.
 
-The scripts also print the figure statistics — AUROC/AUPRC/bACC with 95% CIs,
-Cliff's delta, and Spearman ρ — to the terminal, and open each figure and table
-for review (close one to see the next).
+The scripts also print the figure statistics (AUROC, AUPRC, and bACC with 95% CIs, Cliff's delta, and Spearman ρ) to the terminal, and open each figure and table for review (close one to see the next).
 
-## 5. Retrain the models yourself and then run our analyses
 
-To retrain from scratch instead of using the released models, pick a new
-`--run-name` (e.g. `myrun`) and run the full pipeline under it. Training writes
-models only; the inference and `make_*` scripts then regenerate every CSV,
-figure, and table for that run — the same three steps as above, just with your
-run name.
+
+## 6. Retrain the models yourself and then run our analyses
+
+To retrain from scratch instead of using the released models, pick a new `--run-name` (e.g. `myrun`) and run the full pipeline under it. Training writes models only; the inference and `make_*` scripts then regenerate every CSV, figure, and table for that run — the same three steps as above, just with your run name.
 
 ```
-$ DATASET=datadir/Neuromuscualr_OpenCap_Dataset
-$ DEMO=datadir/nmd_opencap_participant_info.csv
-$ cd code
+DATASET=datadir/Neuromuscualr_OpenCap_Dataset
+DEMO=datadir/nmd_opencap_participant_info.csv
+cd code
+```
+To re-train our models (using 5-fold Cross Validation with the same held-out-test set that we have in our results enforced ), run the following commands (note that cross-validation for the transformers takes ~2.5h on 1 GPU):
 
-# a) Train the fold models (writes runs/myrun/models/)
-$ python train_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
-$ python train_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
-
-# b) Regenerate predictions from your freshly trained models
-$ python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
-$ python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
-
-# c) Build the figures + tables
-$ python make_figures_tables.py               --demographics $DEMO --run-name myrun
-$ python make_supplementary_figures_tables.py --demographics $DEMO --run-name myrun
+python train_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun 
+python train_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
 ```
 
-Outputs land under `runs/myrun/` with the same layout as step 4, so you can
-compare a retrained run against `pretrained` side by side. The transformer uses a
-5-fold GroupKFold split grouped by participant; the SVM/MLP baselines are trained
-independently with their own cross-validation. Held-out test visits (the `split`
-column) never enter training.
+You can now inference your freshly trained models and generate the severity scores as follows:
+```
+python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
+python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun 
+```
+Finally, you can build the figures and tables for your new models.
+
+```
+python make_figures_tables.py               --demographics $DEMO --run-name myrun
+python make_supplementary_figures_tables.py --demographics $DEMO --run-name myrun
+```
+
+Outputs land under `runs/myrun/figures` with the same layout as our pre-trained results (see Step 4 above). The transformer uses a 5-fold GroupKFold split grouped by participant; the SVM/MLP baselines are trained independently with their own cross-validation. Held-out test visits (the `split` column from `nmd_opencap_participant_info.csv`) never enter training.
 
 Every script accepts `--help` for its full input description.
