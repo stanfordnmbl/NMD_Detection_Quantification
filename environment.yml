@@ -1,0 +1,37 @@
+# Conda environment for the NMD OpenCap detection/quantification pipeline.
+#
+# Create and activate:
+#     conda env create -f environment.yml -n nmd-opencap
+#     conda activate nmd-opencap
+#
+# Contains everything needed to run the code end to end:
+#   - the Python stack the scripts import (numpy/scipy/pandas/scikit-learn/
+#     matplotlib/seaborn/joblib/torch), pinned to the versions the released
+#     models were trained and pickled with — scikit-learn 1.0.2 in particular is
+#     required to load the SVM/MLP fold models without a version mismatch;
+#   - tectonic + poppler: the LaTeX engine and pdftoppm that the make_* scripts
+#     shell out to (via create_latex_tables.py) when rendering the tables to
+#     PDF/PNG;
+#   - tk: an interactive matplotlib backend so the one-at-a-time figure/table
+#     viewer works on Linux/Windows (macOS uses its built-in backend);
+#   - zenodo_get: to download the dataset + demographics from Zenodo (step 2 of
+#     the README).
+name: nmd-opencap
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - tk            # interactive matplotlib backend (TkAgg) for Linux/Windows
+  - tectonic      # LaTeX engine used by create_latex_tables.py
+  - poppler       # provides pdftoppm, used to rasterize table PDFs to PNG
+  - pip:
+      - numpy==1.26.4
+      - scipy==1.11.4
+      - pandas==2.3.3
+      - scikit-learn==1.0.2
+      - matplotlib==3.9.4
+      - seaborn==0.13.2
+      - joblib==1.5.3
+      - torch==2.8.0
+      - zenodo_get
