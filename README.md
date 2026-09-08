@@ -10,11 +10,11 @@ run inference, then build the figures and tables.
 ## 1. Setup
 
 ```
-cd [path_to_empty_working_directory]
-git clone <REPO_URL> NMD_Detection_Quantification
-cd NMD_Detection_Quantification
-conda env create -f environment.yml -n nmd-opencap
-conda activate nmd-opencap
+$ cd [path_to_empty_working_directory]
+$ git clone <REPO_URL> NMD_Detection_Quantification
+$ cd NMD_Detection_Quantification
+$ conda env create -f environment.yml -n nmd-opencap
+$ conda activate nmd-opencap
 ```
 
 The working directory is then organized as:
@@ -38,11 +38,11 @@ Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes
 with the environment; or download the two files from the Zenodo page):
 
 ```
-mkdir datadir
-cd datadir
-zenodo_get -d <ZENODO_DOI>
-cd ..
-unzip datadir/Neuromuscualr_OpenCap_Dataset.zip -d datadir
+$ mkdir datadir
+$ cd datadir
+$ zenodo_get -d <ZENODO_DOI>
+$ cd ..
+$ unzip datadir/Neuromuscualr_OpenCap_Dataset.zip -d datadir
 ```
 
 `datadir/` then contains the demographics CSV and the dataset — one folder per
@@ -76,17 +76,17 @@ datadir
 You can reproduce our paper results from the trained models and demographics CSV by running the following commands: 
 
 ```
-DATASET=datadir/Neuromuscualr_OpenCap_Dataset
-DEMO=datadir/nmd_opencap_participant_info.csv
-cd code
+$ DATASET=datadir/Neuromuscualr_OpenCap_Dataset
+$ DEMO=datadir/nmd_opencap_participant_info.csv
+$ cd code
 
 # a) Regenerate predictions from the released fold models (no retraining)
-python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name pretrained
-python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name pretrained
+$ python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+$ python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name pretrained
 
 # b) Build the figures + tables (each opens for review; close one to see the next)
-python make_figures_tables.py               --demographics $DEMO --run-name pretrained
-python make_supplementary_figures_tables.py --demographics $DEMO --run-name pretrained
+$ python make_figures_tables.py               --demographics $DEMO --run-name pretrained
+$ python make_supplementary_figures_tables.py --demographics $DEMO --run-name pretrained
 ```
 
 Everything lands under `runs/pretrained/`:
@@ -110,21 +110,21 @@ figure, and table for that run — the same three steps as above, just with your
 run name.
 
 ```
-DATASET=datadir/Neuromuscualr_OpenCap_Dataset
-DEMO=datadir/nmd_opencap_participant_info.csv
-cd code
+$ DATASET=datadir/Neuromuscualr_OpenCap_Dataset
+$ DEMO=datadir/nmd_opencap_participant_info.csv
+$ cd code
 
 # a) Train the fold models (writes runs/myrun/models/)
-python train_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
-python train_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
+$ python train_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
+$ python train_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
 
 # b) Regenerate predictions from your freshly trained models
-python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
-python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
+$ python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name myrun
+$ python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name myrun
 
 # c) Build the figures + tables
-python make_figures_tables.py               --demographics $DEMO --run-name myrun
-python make_supplementary_figures_tables.py --demographics $DEMO --run-name myrun
+$ python make_figures_tables.py               --demographics $DEMO --run-name myrun
+$ python make_supplementary_figures_tables.py --demographics $DEMO --run-name myrun
 ```
 
 Outputs land under `runs/myrun/` with the same layout as step 4, so you can
