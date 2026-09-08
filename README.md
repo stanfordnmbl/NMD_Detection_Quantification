@@ -31,7 +31,7 @@ NMD_Detection_Quantification
         └── results      # figures + tables (written by the make_* scripts)
 ```
 
-## 2. Data
+## 2. Downloading the Data
 
 The de-identified dataset and demographics are hosted on Zenodo: <ZENODO_DOI>.
 Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes
@@ -73,11 +73,13 @@ datadir
 
 ## 4. Reproduce the paper results
 
+You can reproduce our paper results from the trained models and demographics CSV by running the following commands: 
+
+```
 DATASET=datadir/Neuromuscualr_OpenCap_Dataset
 DEMO=datadir/nmd_opencap_participant_info.csv
 cd code
 
-```
 # a) Regenerate predictions from the released fold models (no retraining)
 python inference_transformer.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 python inference_mlp_svm.py     --dataset $DATASET --demographics $DEMO --run-name pretrained
@@ -99,7 +101,7 @@ The scripts also print the figure statistics — AUROC/AUPRC/bACC with 95% CIs,
 Cliff's delta, and Spearman ρ — to the terminal, and open each figure and table
 for review (close one to see the next).
 
-## 5. Retrain the models yourself and then run our analyses (optional)
+## 5. Retrain the models yourself and then run our analyses
 
 To retrain from scratch instead of using the released models, pick a new
 `--run-name` (e.g. `myrun`) and run the full pipeline under it. Training writes
