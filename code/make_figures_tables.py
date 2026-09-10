@@ -2,19 +2,22 @@
 make_figures_tables.py
 ----------------------
 Generate the paper's main-text FIGURES (2-5) and TABLES (Table 1 diseases,
-Table 2 measures) for a run, and print the figure statistics (AUROC/AUPRC/bACC
-with 95% CIs, Cliff's delta, Spearman rho).
+Table 2 measures) for the pretrained run, and print the figure statistics
+(AUROC/AUPRC/bACC with 95% CIs, Cliff's delta, Spearman rho).
 
-READ-ONLY: consumes a run's prediction CSVs + the participant-info CSV; runs no
-model inference and never touches the raw dataset.
+Two ways to run (choose exactly one of --dataset / --skip-inference):
+    # 1) run the models on the dataset, then build figures + tables
+    python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset \\
+                                  --demographics /path/to/nmd_opencap_participant_info.csv
+    # 2) skip inference; build straight from the shipped precomputed CSVs
+    python make_figures_tables.py --skip-inference \\
+                                  --demographics /path/to/nmd_opencap_participant_info.csv
 
-USAGE:
-    python make_figures_tables.py --demographics /path/to/participant_info.csv \\
-                                  --run-name pretrained
-
-Writes:
-    runs/<run-name>/results/figures/   fig2_performance, fig3_severity, fig4_activlim, fig5_tft
-    runs/<run-name>/results/tables/    table1_diseases.csv, table2_measures.csv
+Mode 1 calls inference_models.py to write the prediction CSVs to
+runs/pretrained/severity_csvs/; mode 2 reads them from
+runs/pretrained/severity_csvs/precomputed/. Writes:
+    runs/pretrained/results/figures/   fig2_performance, fig3_severity, fig4_activlim, fig5_tft
+    runs/pretrained/results/tables/    table1_diseases.csv, table2_measures.csv
 """
 import os
 import numpy as np
@@ -296,8 +299,8 @@ def load_data(ctl_mean, ctl_std, test_csv=None, verbose=True):
     path = TEST_CSV if test_csv is None else test_csv
     if not os.path.exists(path):
         raise FileNotFoundError(
-            f"{path} not found — run train_transformer.py for this run first "
-            "(it writes the test predictions).")
+            f"{path} not found — run with --dataset <DIR> to generate it, or "
+            "--skip-inference to use the shipped precomputed CSVs.")
     df = pd.read_csv(path)
 
     # De-identified prediction CSVs are keyed on (subid, visit). Older PII-keyed
@@ -514,13 +517,13 @@ def plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star):
 # ── 4) Fig 3: Severity score distribution ─────────────────────────────────────
  
 def _oof_continuous_severity():
-    """Read the leakage-free continuous OOF severity logits for this run
-    (subid, visit, label, fold, logit), written by train_transformer.py. No
-    inference here — make_figures_tables.py is read-only."""
+    """Read the leakage-free continuous OOF severity logits (subid, visit, label,
+    fold, logit) from OOF_CSV (set in __main__ to the severity_csvs or the
+    precomputed CSV, depending on --skip-inference)."""
     if not os.path.exists(OOF_CSV):
         raise FileNotFoundError(
-            f"{OOF_CSV} not found — run inference_transformer.py for this run "
-            "first (it writes the OOF validation severity).")
+            f"{OOF_CSV} not found — run with --dataset <DIR> to generate it, or "
+            "--skip-inference to use the shipped precomputed CSVs.")
     return pd.read_csv(OOF_CSV)
 
 
@@ -1073,59 +1076,70 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Generate the paper's main-text figures (2-5) AND tables "
-                    "(Table 1 diseases, Table 2 measures), and print the figure "
-                    "statistics. READ-ONLY: consumes a run's prediction CSVs + the "
-                    "participant-info CSV; runs no model inference.",
+        description="Generate the paper's main-text figures (2-5) and tables "
+                    "(Table 1 diseases, Table 2 measures) for the pretrained run, "
+                    "and print the figure statistics.",
         epilog=(
+            "two ways to run (choose exactly one of --dataset / --skip-inference):\n"
+            "  1) inference:      --dataset <DIR> --demographics <CSV>\n"
+            "       runs the trained models on the dataset (via inference_models.py),\n"
+            "       saves the prediction CSVs to runs/pretrained/severity_csvs/,\n"
+            "       then builds the figures + tables.\n"
+            "  2) skip inference: --skip-inference --demographics <CSV>\n"
+            "       skips the models and builds figures + tables straight from the\n"
+            "       shipped CSVs in runs/pretrained/severity_csvs/precomputed/.\n\n"
             "inputs:\n"
-            "  --demographics  participant-info CSV (subid, visit, diag, sex, split,\n"
-            "                  + the clinical/measure columns used by figs 4-5 and\n"
-            "                  Table 2).\n"
-            "  --run-name      Name of a run under runs/. Reads\n"
-            "                    runs/<run-name>/csvs/test_severity_transformer_<run-name>.csv\n"
-            "                    runs/<run-name>/csvs/oof_validation_severity_transformer_<run-name>.csv\n"
-            "                    runs/<run-name>/models/cv_preds_transformer/\n"
-            "                  and writes\n"
-            "                    runs/<run-name>/results/figures/   (fig2-5)\n"
-            "                    runs/<run-name>/results/tables/    (table1_diseases, table2_measures)\n"
-            "                  Produce the CSVs first with inference_transformer.py.\n\n"
-            "example:\n"
-            "  python make_figures_tables.py \\\n"
-            "      --demographics ~/nmd_opencap_participant_info.csv --run-name pretrained\n"))
+            "  --dataset       dataset root (.../datadir/Neuromuscular_OpenCap_Dataset)\n"
+            "  --demographics  participant-info CSV (subid, visit, diag, sex, split, + measures)\n"
+            "  --skip-inference use the precomputed CSVs instead of running the models\n\n"
+            "examples:\n"
+            "  python make_figures_tables.py --dataset datadir/Neuromuscular_OpenCap_Dataset \\\n"
+            "      --demographics datadir/nmd_opencap_participant_info.csv\n"
+            "  python make_figures_tables.py --skip-inference \\\n"
+            "      --demographics datadir/nmd_opencap_participant_info.csv\n"))
     ap.add_argument("--demographics", required=True, metavar="CSV",
                     help="participant-info CSV (subid, visit, diag, sex, split, + measures)")
-    ap.add_argument("--run-name", required=True, metavar="NAME",
-                    help="run identifier; reads runs/<run-name>/{csvs,models}, writes "
-                         "runs/<run-name>/results/{figures,tables}/")
+    ap.add_argument("--dataset", metavar="DIR",
+                    help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
+                         "runs inference to generate the prediction CSVs")
+    ap.add_argument("--skip-inference", action="store_true",
+                    help="skip inference and use the precomputed CSVs in "
+                         "runs/pretrained/severity_csvs/precomputed/")
     args = ap.parse_args()
 
+    # Exactly one of --dataset / --skip-inference.
+    if bool(args.dataset) == bool(args.skip_inference):
+        ap.error("provide exactly one of:\n"
+                 "  --dataset <DIR> --demographics <CSV>     (run inference), or\n"
+                 "  --skip-inference --demographics <CSV>    (use precomputed CSVs)")
+
     REPO    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    RUN_DIR = os.path.join(REPO, "runs", args.run_name)
+    RUN_DIR = os.path.join(REPO, "runs", "pretrained")
 
     DEMO_CSV    = os.path.expanduser(args.demographics)
     MODEL_DIR   = os.path.join(RUN_DIR, "models", "cv_models_transformer")
     CV_PRED_DIR = os.path.join(RUN_DIR, "models", "cv_preds_transformer")
-    TEST_CSV    = os.path.join(RUN_DIR, "csvs", f"test_severity_transformer_{args.run_name}.csv")
-    OOF_CSV     = os.path.join(RUN_DIR, "csvs", f"oof_validation_severity_transformer_{args.run_name}.csv")
     FIG_DIR     = os.path.join(RUN_DIR, "results", "figures")
     OUT_DIR     = os.path.join(RUN_DIR, "results", "tables")
 
-    # Graceful validation: fail with an actionable message, not a traceback.
     if not os.path.isfile(DEMO_CSV):
         ap.error(f"--demographics: file not found: {DEMO_CSV}\n"
                  "Provide the participant-info CSV (columns: subid, visit, diag, sex, split, ...).")
-    if not os.path.isdir(RUN_DIR):
-        ap.error(f"--run-name: no run directory at {RUN_DIR}\n"
-                 "Expected runs/<run-name>/ with a csvs/ subfolder. Train + run "
-                 "inference for this run first (train_transformer.py, then "
-                 "inference_transformer.py).")
+
+    # Prediction CSVs: run inference into severity_csvs/, or use severity_csvs/precomputed/.
+    if args.skip_inference:
+        CSV_SRC = os.path.join(RUN_DIR, "severity_csvs", "precomputed")
+    else:
+        import inference_models
+        CSV_SRC = inference_models.run_inference(args.dataset, DEMO_CSV, RUN_DIR)
+
+    TEST_CSV = os.path.join(CSV_SRC, "test_severity_transformer_pretrained.csv")
+    OOF_CSV  = os.path.join(CSV_SRC, "oof_validation_severity_transformer_pretrained.csv")
     for label, path in (("test", TEST_CSV), ("OOF", OOF_CSV)):
         if not os.path.isfile(path):
-            ap.error(f"--run-name: missing {label} predictions: {path}\n"
-                     "Generate this run's CSVs first:\n"
-                     f"  python inference_transformer.py --dataset <DATASET> "
-                     f"--demographics {args.demographics} --run-name {args.run_name}")
+            ap.error(f"missing {label} predictions: {path}\n" + (
+                "Restore the shipped CSVs, or run with --dataset <DIR> to regenerate them."
+                if args.skip_inference else "Inference did not produce the expected CSV."))
 
     os.makedirs(FIG_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)

@@ -3,19 +3,21 @@ make_supplementary_figures_tables.py
 ------------------------------------
 Generate the supplementary FIGURE (per-measure distribution histograms) and the
 three supplementary TABLES (classification, convergent validity, kinematic
-parameters) for a run.
+parameters) for the pretrained run.
 
-The figure is read-only from the participant-info CSV; the tables consume a
-run's three test-prediction CSVs (Transformer + SVM + MLP) plus the clinical
-measures in the participant-info CSV.
+Two ways to run (choose exactly one of --dataset / --skip-inference):
+    # 1) run the models on the dataset, then build the supplementary outputs
+    python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset \\
+                                                --demographics /path/to/nmd_opencap_participant_info.csv
+    # 2) skip inference; build straight from the shipped precomputed CSVs
+    python make_supplementary_figures_tables.py --skip-inference \\
+                                                --demographics /path/to/nmd_opencap_participant_info.csv
 
-USAGE:
-    python make_supplementary_figures_tables.py --demographics /path/to/participant_info.csv \\
-                                                --run-name pretrained
-
-Writes:
-    runs/<run-name>/results/supp_figures/  supplementary_fig1_distributions.{png,pdf}
-    runs/<run-name>/results/supp_tables/   supplementary_table{1,2,3}_*.csv
+Mode 1 calls inference_models.py to write the prediction CSVs to
+runs/pretrained/severity_csvs/; mode 2 reads them from
+runs/pretrained/severity_csvs/precomputed/. Writes:
+    runs/pretrained/results/supp_figures/  supplementary_fig1_distributions.{png,pdf}
+    runs/pretrained/results/supp_tables/   supplementary_table{1,2,3}_*.csv
 """
 import os
 import numpy as np
@@ -170,11 +172,13 @@ SEED    = 17
 CLUSTER_BY_PARTICIPANT = False
 
 
-def configure(run_dir, demographics):
+def configure(run_dir, demographics, csv_dir=None):
     """Point RUNS/REDCAP_CSV at a run's prediction CSVs + the demographics CSV.
-    RUNS keys the three models to runs/<run>/csvs/test_severity_<model>_<run>.csv."""
+    RUNS keys the three models to <csv_dir>/test_severity_<model>_<run>.csv;
+    csv_dir defaults to runs/<run>/severity_csvs (pass severity_csvs/precomputed
+    for the shipped CSVs)."""
     run_name = os.path.basename(os.path.normpath(run_dir))
-    csvs = os.path.join(run_dir, "csvs")
+    csvs = csv_dir if csv_dir else os.path.join(run_dir, "severity_csvs")
     global RUNS, REDCAP_CSV
     RUNS = {
         "Transformer": os.path.join(csvs, f"test_severity_transformer_{run_name}.csv"),
@@ -436,47 +440,65 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Generate the supplementary figure (measure distributions) AND "
-                    "the three supplementary tables. Figure is read-only from the "
-                    "participant-info CSV; tables consume a run's test-prediction CSVs.",
+        description="Generate the supplementary figure (measure distributions) and the "
+                    "three supplementary tables for the pretrained run.",
         epilog=(
+            "two ways to run (choose exactly one of --dataset / --skip-inference):\n"
+            "  1) inference:      --dataset <DIR> --demographics <CSV>\n"
+            "       runs the trained models on the dataset (via inference_models.py),\n"
+            "       saves the prediction CSVs to runs/pretrained/severity_csvs/,\n"
+            "       then builds the supplementary figure + tables.\n"
+            "  2) skip inference: --skip-inference --demographics <CSV>\n"
+            "       skips the models and builds them straight from the shipped CSVs in\n"
+            "       runs/pretrained/severity_csvs/precomputed/.\n\n"
             "inputs:\n"
-            "  --demographics  participant-info CSV (diag + Table 2 measures for the\n"
-            "                  figure; clinical measures activ_logit/tft_* for the tables),\n"
-            "                  keyed on (subid, visit).\n"
-            "  --run-name      Name of a run under runs/. Reads the three models' test\n"
-            "                  CSVs from runs/<run-name>/csvs/ and writes\n"
-            "                    runs/<run-name>/results/supp_figures/  (supplementary fig 1)\n"
-            "                    runs/<run-name>/results/supp_tables/   (supplementary tables 1-3)\n"
-            "                  Generate the CSVs first with inference_transformer.py and\n"
-            "                  inference_mlp_svm.py.\n\n"
-            "example:\n"
-            "  python make_supplementary_figures_tables.py \\\n"
-            "      --demographics ~/nmd_opencap_participant_info.csv --run-name pretrained\n"))
+            "  --dataset       dataset root (.../datadir/Neuromuscular_OpenCap_Dataset)\n"
+            "  --demographics  participant-info CSV (diag + measures / clinical, keyed subid/visit)\n"
+            "  --skip-inference use the precomputed CSVs instead of running the models\n\n"
+            "examples:\n"
+            "  python make_supplementary_figures_tables.py --dataset datadir/Neuromuscular_OpenCap_Dataset \\\n"
+            "      --demographics datadir/nmd_opencap_participant_info.csv\n"
+            "  python make_supplementary_figures_tables.py --skip-inference \\\n"
+            "      --demographics datadir/nmd_opencap_participant_info.csv\n"))
     ap.add_argument("--demographics", required=True, metavar="CSV",
                     help="participant-info CSV (diag + measures / clinical, keyed subid/visit)")
-    ap.add_argument("--run-name", required=True, metavar="NAME",
-                    help="run identifier; reads runs/<run-name>/csvs/, writes "
-                         "runs/<run-name>/results/{supp_figures,supp_tables}/")
+    ap.add_argument("--dataset", metavar="DIR",
+                    help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
+                         "runs inference to generate the prediction CSVs")
+    ap.add_argument("--skip-inference", action="store_true",
+                    help="skip inference and use the precomputed CSVs in "
+                         "runs/pretrained/severity_csvs/precomputed/")
     args = ap.parse_args()
 
+    # Exactly one of --dataset / --skip-inference.
+    if bool(args.dataset) == bool(args.skip_inference):
+        ap.error("provide exactly one of:\n"
+                 "  --dataset <DIR> --demographics <CSV>     (run inference), or\n"
+                 "  --skip-inference --demographics <CSV>    (use precomputed CSVs)")
+
     REPO    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    RUN_DIR = os.path.join(REPO, "runs", args.run_name)
+    RUN_DIR = os.path.join(REPO, "runs", "pretrained")
     DEMO    = os.path.expanduser(args.demographics)
     FIG_DIR = os.path.join(RUN_DIR, "results", "supp_figures")
     OUTDIR  = os.path.join(RUN_DIR, "results", "supp_tables")
 
-    # Graceful validation: fail with an actionable message, not a traceback.
     if not os.path.isfile(DEMO):
         ap.error(f"--demographics: file not found: {DEMO}\n"
                  "Provide the participant-info CSV (diag + measures; clinical measures keyed subid/visit).")
-    configure(RUN_DIR, DEMO)
+
+    # Prediction CSVs: run inference into severity_csvs/, or use severity_csvs/precomputed/.
+    if args.skip_inference:
+        CSV_SRC = os.path.join(RUN_DIR, "severity_csvs", "precomputed")
+    else:
+        import inference_models
+        CSV_SRC = inference_models.run_inference(args.dataset, DEMO, RUN_DIR)
+
+    configure(RUN_DIR, DEMO, csv_dir=CSV_SRC)
     missing = [n for n, p in RUNS.items() if not os.path.isfile(p)]
     if missing:
-        ap.error("--run-name: missing test-prediction CSVs for "
-                 f"{', '.join(missing)} under {os.path.join(RUN_DIR, 'csvs')}\n"
-                 "Generate them first (inference_transformer.py for the Transformer, "
-                 "inference_mlp_svm.py for SVM/MLP).")
+        ap.error(f"missing test-prediction CSVs for {', '.join(missing)} under {CSV_SRC}\n" + (
+            "Restore the shipped CSVs, or run with --dataset <DIR> to regenerate them."
+            if args.skip_inference else "Inference did not produce the expected CSVs."))
 
     os.makedirs(FIG_DIR, exist_ok=True)
     os.makedirs(OUTDIR, exist_ok=True)

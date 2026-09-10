@@ -42,6 +42,7 @@ from transformer_model import VisitTransformer
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
+# joint coordiantes from LaiUhlrich2022 used as model inputs
 EXPECTED_COLUMNS = [
     'pelvis_tilt', 'pelvis_list', 'pelvis_rotation', 'pelvis_tx',
     'pelvis_ty', 'pelvis_tz', 'hip_flexion_r', 'hip_adduction_r',
@@ -75,11 +76,11 @@ MAX_EPOCHS   = 20
 PATIENCE     = 5
 
 # Output paths — placeholders set per run by the two entry points (train's
-# __main__ and inference_transformer.py) to point at
+# __main__ and inference_models.py) to point at
 #   runs/<run-name>/models/cv_models_transformer   (MODEL_DIR)
 #   runs/<run-name>/models/cv_preds_transformer    (PRED_DIR)
-#   runs/<run-name>/csvs/test_severity_<run>.csv   (OUT_CSV)
-# OUT_CSV is written only by run_test_inference (inference_transformer.py);
+#   runs/<run-name>/severity_csvs/test_severity_<run>.csv (OUT_CSV)
+# OUT_CSV is written only by run_test_inference (inference_models.py);
 # training itself writes models only.
 MODEL_DIR = None
 PRED_DIR  = None
@@ -363,7 +364,7 @@ def run_test_inference(test_samples, demo_df):
     Run all five fold models on the held-out test set.
     Saves per-fold probabilities, predicted classes, logits, and ensemble mean.
     Writes the ensemble test-severity CSV to OUT_CSV (set per run by the caller,
-    i.e. inference_transformer.py).
+    i.e. inference_models.py).
 
     Args:
         test_samples:  list of sample dicts (keyed subid/visit)
@@ -462,7 +463,7 @@ def compute_oof_continuous(samples, out_csv=None):
     its held-out validation visits (from PRED_DIR/cv_fold{k}_val_ids.npz) and
     record the pre-sigmoid logit — the un-saturated severity used by Figure 3.
     Writes the OOF severity CSV to out_csv (required; set per run by the caller,
-    i.e. inference_transformer.py)."""
+    i.e. inference_models.py)."""
     task_vocab = build_task_vocab(samples)
     by_key = {(str(s["digbi_id"]).strip(), str(s["date"]).strip()): s for s in samples}
     rows = []
@@ -490,7 +491,7 @@ def compute_oof_continuous(samples, out_csv=None):
     out = pd.DataFrame(rows)[["subid", "visit", "label", "fold", "logit"]]
     if out_csv is None:
         raise ValueError("compute_oof_continuous: out_csv is required "
-                         "(set by train_transformer.__main__ / inference_transformer.py)")
+                         "(set by train_models.__main__ / inference_models.py)")
     out.to_csv(out_csv, index=False)
     print(f"Saved continuous OOF severity -> {out_csv}  ({len(out)} rows)")
     return out
@@ -653,7 +654,7 @@ MODELS = {"svm": make_svm, "mlp": make_mlp}
 
 def fit_model(name, X, y, rng):
     clf = MODELS[name]()
-    if name == "mlp":                       # MLP has no class_weight -> oversample
+    if name == "mlp":                       
         w   = compute_sample_weight("balanced", y)
         idx = rng.choice(len(y), size=len(y), replace=True, p=w / w.sum())
         clf.fit(X[idx], y[idx])
@@ -738,7 +739,7 @@ def fit_norm(fold_train):
 # ── Main CV loop (models only) ────────────────────────────────────────────────
 def run_baselines(trainval, folds):
     """Fit + save the SVM/MLP fold models. Models only — the test-severity CSVs
-    are written separately by inference_mlp_svm.py from these saved fold pickles
+    are written separately by inference_models.py from these saved fold pickles
     (each pickle carries its pipeline + task_vocab + normalizer)."""
     rng = np.random.default_rng(SEED)
     print(f"\nFeature variant: {'base+asym' if ADD_ASYMMETRY else 'base'} "
@@ -771,13 +772,13 @@ def run_baselines(trainval, folds):
     print("\nTraining complete. Fold models written under:")
     for name in MODELS:
         print(f"  {model_dirs[name]}/")
-    print("To generate the test-severity CSVs, run inference_mlp_svm.py with the "
-          "same --run-name.")
+    print("Models only. Generate the prediction CSVs, figures, and tables with "
+          "make_figures_tables.py (--dataset).")
 
 
 def _write_test_csv(name, prob, logit, meta):
     """Assemble test_severity_{name}_<run>.csv from per-fold probs/logits (keyed
-    subid/visit; diagnosis from participant_info). Used by inference_mlp_svm.py."""
+    subid/visit; diagnosis from participant_info). Used by inference_models.py."""
     y_te, te_ids, te_dates = meta
     pi = pd.read_csv(DEMO_CSV)
     diag_map = {(str(a), int(b)): str(dg) for a, b, dg in zip(pi.subid, pi.visit, pi.diag)}
@@ -885,7 +886,8 @@ if __name__ == "__main__":
     print("\n" + "=" * 66 + "\n  SVM / MLP baselines (same folds)\n" + "=" * 66)
     run_baselines(trainval, folds)
 
-    print("\nTraining complete. Fold models written under runs/"
-          f"{args.run_name}/models/.\nGenerate the prediction CSVs with:\n"
-          f"  python inference_models.py --dataset {args.dataset} "
-          f"--demographics {args.demographics} --run-name {args.run_name}")
+    print(f"\nTraining complete. Fold models written under runs/{args.run_name}/models/.")
+    print("Build the figures and tables with (the make_* scripts target the pretrained "
+          "run, so train with --run-name pretrained to use your models here):\n"
+          f"  python make_figures_tables.py --dataset {args.dataset} --demographics {args.demographics}\n"
+          f"  python make_supplementary_figures_tables.py --dataset {args.dataset} --demographics {args.demographics}")
