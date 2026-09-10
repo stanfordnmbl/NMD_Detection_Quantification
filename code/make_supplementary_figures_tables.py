@@ -38,6 +38,7 @@ def view_sequentially(paths):
     import matplotlib.image as mpimg
     if not paths:
         return
+    plt.close("all")   # close the Agg figures so switch_backend doesn't warn
     for backend in ("MacOSX", "QtAgg", "TkAgg"):
         try:
             plt.switch_backend(backend)

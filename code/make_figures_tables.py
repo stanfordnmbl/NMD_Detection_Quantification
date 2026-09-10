@@ -42,6 +42,7 @@ def view_sequentially(paths):
     import matplotlib.image as mpimg
     if not paths:
         return
+    plt.close("all")   # close the Agg figures so switch_backend doesn't warn
     for backend in ("MacOSX", "QtAgg", "TkAgg"):
         try:
             plt.switch_backend(backend)
@@ -88,18 +89,8 @@ PALETTE    = {
     "CMT": "#ffb400", "DMD": "#f547d5", "SMA": "#7247b8",
     "BMD": "#ff746C", "CM": "#85b4b7", "GNE": "#cc8770",
     "ALS": "#808000",
-    # rare diagnoses present only in the OOF (train_val) split — appear in
-    # Supp Fig 2, not the held-out test figures.
     "scDMD": "#e377c2", "LGMD": "#2ca02c", "SBMA": "#8c564b",
 }
-
-# Diagnosis corrections. Now empty — the previously-needed DB-689->ALS fix is
-# correct in the demographics table (nmd_opencap_participant_info.csv), so no
-# post-hoc patch is required. Kept as a dict so callers iterating it are no-ops.
-DIAGNOSIS_FIXES = {}
-
-
- 
 # No display relabeling — figures show the raw diagnosis codes (CTL, DM, FSHD, ...)
 DISPLAY_NAME = {}
 
@@ -309,8 +300,6 @@ def load_data(ctl_mean, ctl_std, test_csv=None, verbose=True):
         df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
     if "digbi_id" in df.columns:
         df["digbi_id"] = df["digbi_id"].astype(str).str.upper().str.strip()
-        for _pid, _dx in DIAGNOSIS_FIXES.items():
-            df.loc[df["digbi_id"] == _pid, "clinical_diagnosis"] = _dx
 
     redcap_cols = [
         "subid", "visit",
@@ -547,8 +536,6 @@ def plot_fig3(df, threshold_z=None):
     demo = _load_demo(DEMO_CSV).rename(columns={"diag": "clinical_diagnosis"})
     oof = oof.merge(demo[["subid", "visit", "clinical_diagnosis"]],
                     on=["subid", "visit"], how="left")
-    for pid, dx in DIAGNOSIS_FIXES.items():
-        oof.loc[oof["digbi_id"] == pid, "clinical_diagnosis"] = dx
     oof["severity_z"] = (oof["logit"] - cm) / cs
 
     allz = np.concatenate([test["severity_z"].dropna().to_numpy(),
