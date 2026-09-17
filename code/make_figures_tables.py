@@ -925,7 +925,6 @@ def save_csv(tbl, n_p, n_v, path):
 
 # ── Main ─────────────────────────────────────────────────────────────────────────
 def build_table1():
-    # The participant-info CSV IS the modeling cohort. Map its (de-identified)
     # key columns (subid/visit) and diagnosis onto the names the table builders
     # expect; subid/visit are used only as participant/visit dedup keys, so the
     # counts are identical to the pid/date version.
@@ -1064,21 +1063,36 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Generate the paper's main-text figures (2-5) and tables "
-                    "(Table 1 diseases, Table 2 measures) for the pretrained run, "
-                    "and print the figure statistics.",
+                    "(Table 1 diseases, Table 2 measures) for a run (default: "
+                    "pretrained; pass --run-name to target another), and print the "
+                    "figure statistics.",
         epilog=(
             "two ways to run (choose exactly one of --dataset / --skip-inference):\n"
             "  1) inference:      --dataset <DIR> --demographics <CSV>\n"
             "       runs the trained models on the dataset (via inference_models.py),\n"
-            "       saves the prediction CSVs to runs/pretrained/severity_csvs/,\n"
+            "       saves the prediction CSVs to runs/<run-name>/severity_csvs/,\n"
             "       then builds the figures + tables.\n"
             "  2) skip inference: --skip-inference --demographics <CSV>\n"
-            "       skips the models and builds figures + tables straight from the\n"
-            "       shipped CSVs in runs/pretrained/severity_csvs/precomputed/.\n\n"
+            "       skips the models and builds figures + tables from the precomputed CSVs\n"
+            "       shipped with the pretrained run (runs/pretrained/severity_csvs/precomputed/).\n\n"
+            "Inference writes each run's prediction CSVs to runs/<run-name>/severity_csvs/;\n"
+            "the precomputed/ subdir exists only for the shipped pretrained run. All outputs\n"
+            "go to runs/<run-name>/ (default run-name: pretrained).\n\n"
             "inputs:\n"
-            "  --dataset       dataset root (.../datadir/Neuromuscular_OpenCap_Dataset)\n"
-            "  --demographics  participant-info CSV (subid, visit, diag, sex, split, + measures)\n"
-            "  --skip-inference use the precomputed CSVs instead of running the models\n\n"
+            "  --dataset       Path to root of Neuromuscular_OpenCap_Dataset downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/Neuromuscular_OpenCap_Dataset).\n"
+            "                  Dataset root should have structure sub-*/visit-*/ses-*/Kinematics/*.mot)\n"
+            "  --demographics  path to participant info CSV downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/nmd_opencap_participant_info.csv)\n"
+            "                  (columns: subid, visit, diag, split)\n"
+            "  --skip-inference build from the precomputed CSVs shipped with the pretrained run\n"
+            "                  (runs/pretrained/severity_csvs/precomputed/) instead of running the\n"
+            "                  models; use with --run-name pretrained (the default)\n"
+            "  --run-name      which run under runs/ to use (default: pretrained); applies to both\n"
+            "                  modes. With --dataset, inference reads runs/<run-name>/models and\n"
+            "                  writes CSVs to runs/<run-name>/severity_csvs/ (figures/tables to\n"
+            "                  runs/<run-name>/results/). With --skip-inference, keep it pretrained\n"
+            "                  (the shipped precomputed run)\n\n"
             "examples:\n"
             "  python make_figures_tables.py --dataset datadir/Neuromuscular_OpenCap_Dataset \\\n"
             "      --demographics datadir/nmd_opencap_participant_info.csv\n"
@@ -1090,8 +1104,15 @@ if __name__ == "__main__":
                     help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
                          "runs inference to generate the prediction CSVs")
     ap.add_argument("--skip-inference", action="store_true",
-                    help="skip inference and use the precomputed CSVs in "
-                         "runs/pretrained/severity_csvs/precomputed/")
+                    help="skip inference and build from the precomputed CSVs shipped with the "
+                         "pretrained run (runs/pretrained/severity_csvs/precomputed/); use with "
+                         "--run-name pretrained (the default)")
+    ap.add_argument("--run-name", default="pretrained", metavar="NAME",
+                    help="which run under runs/ to use (default: pretrained); applies to both "
+                         "modes. With --dataset, inference reads runs/<run-name>/models and writes "
+                         "CSVs to runs/<run-name>/severity_csvs/ (figures/tables to "
+                         "runs/<run-name>/results/) — use the --run-name you trained with (e.g. "
+                         "hrnet_all). With --skip-inference, keep it pretrained.")
     args = ap.parse_args()
 
     # Exactly one of --dataset / --skip-inference.
@@ -1101,7 +1122,11 @@ if __name__ == "__main__":
                  "  --skip-inference --demographics <CSV>    (use precomputed CSVs)")
 
     REPO    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    RUN_DIR = os.path.join(REPO, "runs", "pretrained")
+    RUN_DIR = os.path.join(REPO, "runs", args.run_name)
+    if not os.path.isdir(RUN_DIR):
+        ap.error(f"--run-name: run directory not found: {RUN_DIR}\n"
+                 f"Train first with train_models.py --run-name {args.run_name}, "
+                 "or pass an existing run (e.g. --run-name pretrained).")
 
     DEMO_CSV    = os.path.expanduser(args.demographics)
     MODEL_DIR   = os.path.join(RUN_DIR, "models", "cv_models_transformer")
@@ -1120,8 +1145,8 @@ if __name__ == "__main__":
         import inference_models
         CSV_SRC = inference_models.run_inference(args.dataset, DEMO_CSV, RUN_DIR)
 
-    TEST_CSV = os.path.join(CSV_SRC, "test_severity_transformer_pretrained.csv")
-    OOF_CSV  = os.path.join(CSV_SRC, "oof_validation_severity_transformer_pretrained.csv")
+    TEST_CSV = os.path.join(CSV_SRC, f"test_severity_transformer_{args.run_name}.csv")
+    OOF_CSV  = os.path.join(CSV_SRC, f"oof_validation_severity_transformer_{args.run_name}.csv")
     for label, path in (("test", TEST_CSV), ("OOF", OOF_CSV)):
         if not os.path.isfile(path):
             ap.error(f"missing {label} predictions: {path}\n" + (

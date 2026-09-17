@@ -442,20 +442,34 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Generate the supplementary figure (measure distributions) and the "
-                    "three supplementary tables for the pretrained run.",
+                    "three supplementary tables for a run (default: pretrained; "
+                    "pass --run-name to target another).",
         epilog=(
             "two ways to run (choose exactly one of --dataset / --skip-inference):\n"
             "  1) inference:      --dataset <DIR> --demographics <CSV>\n"
             "       runs the trained models on the dataset (via inference_models.py),\n"
-            "       saves the prediction CSVs to runs/pretrained/severity_csvs/,\n"
+            "       saves the prediction CSVs to runs/<run-name>/severity_csvs/,\n"
             "       then builds the supplementary figure + tables.\n"
             "  2) skip inference: --skip-inference --demographics <CSV>\n"
-            "       skips the models and builds them straight from the shipped CSVs in\n"
-            "       runs/pretrained/severity_csvs/precomputed/.\n\n"
+            "       skips the models and builds them from the precomputed CSVs shipped with\n"
+            "       the pretrained run (runs/pretrained/severity_csvs/precomputed/).\n\n"
+            "Inference writes each run's prediction CSVs to runs/<run-name>/severity_csvs/;\n"
+            "the precomputed/ subdir exists only for the shipped pretrained run.\n\n"
             "inputs:\n"
-            "  --dataset       dataset root (.../datadir/Neuromuscular_OpenCap_Dataset)\n"
-            "  --demographics  participant-info CSV (diag + measures / clinical, keyed subid/visit)\n"
-            "  --skip-inference use the precomputed CSVs instead of running the models\n\n"
+            "  --dataset       Path to root of Neuromuscular_OpenCap_Dataset downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/Neuromuscular_OpenCap_Dataset).\n"
+            "                  Dataset root should have structure sub-*/visit-*/ses-*/Kinematics/*.mot)\n"
+            "  --demographics  path to participant info CSV downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/nmd_opencap_participant_info.csv)\n"
+            "                  (columns: subid, visit, diag, split)\n"
+            "  --skip-inference build from the precomputed CSVs shipped with the pretrained run\n"
+            "                  (runs/pretrained/severity_csvs/precomputed/) instead of running the\n"
+            "                  models; use with --run-name pretrained (the default)\n"
+            "  --run-name      which run under runs/ to use (default: pretrained); applies to both\n"
+            "                  modes. With --dataset, inference reads runs/<run-name>/models and\n"
+            "                  writes CSVs to runs/<run-name>/severity_csvs/ (supplementary outputs\n"
+            "                  to runs/<run-name>/results/). With --skip-inference, keep it pretrained\n"
+            "                  (the shipped precomputed run)\n\n"
             "examples:\n"
             "  python make_supplementary_figures_tables.py --dataset datadir/Neuromuscular_OpenCap_Dataset \\\n"
             "      --demographics datadir/nmd_opencap_participant_info.csv\n"
@@ -467,8 +481,15 @@ if __name__ == "__main__":
                     help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
                          "runs inference to generate the prediction CSVs")
     ap.add_argument("--skip-inference", action="store_true",
-                    help="skip inference and use the precomputed CSVs in "
-                         "runs/pretrained/severity_csvs/precomputed/")
+                    help="skip inference and build from the precomputed CSVs shipped with the "
+                         "pretrained run (runs/pretrained/severity_csvs/precomputed/); use with "
+                         "--run-name pretrained (the default)")
+    ap.add_argument("--run-name", default="pretrained", metavar="NAME",
+                    help="which run under runs/ to use (default: pretrained); applies to both "
+                         "modes. With --dataset, inference reads runs/<run-name>/models and writes "
+                         "CSVs to runs/<run-name>/severity_csvs/ (supplementary outputs to "
+                         "runs/<run-name>/results/) — use the --run-name you trained with (e.g. "
+                         "hrnet_all). With --skip-inference, keep it pretrained.")
     args = ap.parse_args()
 
     # Exactly one of --dataset / --skip-inference.
@@ -478,7 +499,11 @@ if __name__ == "__main__":
                  "  --skip-inference --demographics <CSV>    (use precomputed CSVs)")
 
     REPO    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    RUN_DIR = os.path.join(REPO, "runs", "pretrained")
+    RUN_DIR = os.path.join(REPO, "runs", args.run_name)
+    if not os.path.isdir(RUN_DIR):
+        ap.error(f"--run-name: run directory not found: {RUN_DIR}\n"
+                 f"Train first with train_models.py --run-name {args.run_name}, "
+                 "or pass an existing run (e.g. --run-name pretrained).")
     DEMO    = os.path.expanduser(args.demographics)
     FIG_DIR = os.path.join(RUN_DIR, "results", "supp_figures")
     OUTDIR  = os.path.join(RUN_DIR, "results", "supp_tables")

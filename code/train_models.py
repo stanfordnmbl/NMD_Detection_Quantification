@@ -1,13 +1,14 @@
 """
 train_models.py
 ---------------
-Train BOTH models used in the paper on the de-identified OpenCap dataset:
-the UE-aware VisitTransformer and the SVM / MLP feature-based baselines.
+Train all models referenced in the manuscript on the Neuromuscular OpenCap Dataset.
+Training uses a single 5-fold GroupKFold split (grouped by participant), computed once
+and reused for every model, so the Transformer, SVM, and MLP are cross-validated on
+identical folds. Each architecture is trained five times (one model per fold). The
+held-out test set (the demographics CSV `split` column) is excluded from cross-validation.
 
-A single 5-fold GroupKFold split (grouped by participant) is computed once and
-reused for every model, so the transformer and the baselines are cross-validated
-on identical folds. The held-out test set (the demographics `split` column) never
-enters cross-validation.
+The Transformer is trained on kinematic time series (main-text figures), and the SVM
+and MLP on a set of engineered features (supplementary tables).
 
 This script writes MODELS ONLY, under runs/<run-name>/models/:
     cv_models_transformer/  cv_preds_transformer/   -- transformer fold models + val ids
@@ -823,13 +824,23 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Train the UE-aware VisitTransformer and the SVM/MLP baselines "
-                    "on one shared 5-fold GroupKFold split (grouped by participant). "
-                    "Writes MODELS ONLY.",
+        description=(
+            "Train all models referenced in the manuscript on the Neuromuscular OpenCap Dataset.\n"
+            "Training uses a single 5-fold GroupKFold split (grouped by participant), computed once\n"
+            "and reused for every model, so the Transformer, SVM, and MLP are cross-validated on\n"
+            "identical folds. Each architecture is trained five times (one model per fold). The\n"
+            "held-out test set (the demographics CSV `split` column) is excluded from cross-validation.\n"
+            "\n"
+            "The Transformer is trained on kinematic time series (main-text figures), and the SVM\n"
+            "and MLP on a set of engineered features (supplementary tables)."),
         epilog=(
             "inputs:\n"
-            "  --dataset       Dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot\n"
-            "  --demographics  participant-info CSV (columns: subid, visit, diag, split)\n"
+            "  --dataset       Path to root of Neuromuscular_OpenCap_Dataset downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/Neuromuscular_OpenCap_Dataset).\n"
+            "                  Dataset root should have structure sub-*/visit-*/ses-*/Kinematics/*.mot)\n"
+            "  --demographics  path to participant info CSV downloaded from Zenodo\n"
+            "                  (e.g. ../datadir/nmd_opencap_participant_info.csv)\n"
+            "                  (columns: subid, visit, diag, split)\n"
             "  --run-name      Output identifier. Fold models go under\n"
             "                    runs/<run-name>/models/{cv_models_transformer,\n"
             "                    cv_preds_transformer, cv_models_svm, cv_models_mlp}/\n\n"
@@ -839,7 +850,7 @@ if __name__ == "__main__":
             "generate them with inference_models.py.\n\n"
             "example:\n"
             "  python train_models.py --dataset ~/NMD_OpenCap_DS_v2 \\\n"
-            "      --demographics ~/nmd_opencap_participant_info.csv --run-name pretrained\n"))
+            "      --demographics ~/nmd_opencap_participant_info.csv --run-name run1\n"))
     ap.add_argument("--dataset", required=True, metavar="DIR",
                     help="dataset root with sub-*/visit-*/ses-*/Kinematics/*.mot")
     ap.add_argument("--demographics", required=True, metavar="CSV",
@@ -887,7 +898,6 @@ if __name__ == "__main__":
     run_baselines(trainval, folds)
 
     print(f"\nTraining complete. Fold models written under runs/{args.run_name}/models/.")
-    print("Build the figures and tables with (the make_* scripts target the pretrained "
-          "run, so train with --run-name pretrained to use your models here):\n"
-          f"  python make_figures_tables.py --dataset {args.dataset} --demographics {args.demographics}\n"
-          f"  python make_supplementary_figures_tables.py --dataset {args.dataset} --demographics {args.demographics}")
+    print(f"Build the figures and tables for this run (--run-name {args.run_name}) with:\n"
+          f"  python make_figures_tables.py --dataset {args.dataset} --demographics {args.demographics} --run-name {args.run_name}\n"
+          f"  python make_supplementary_figures_tables.py --dataset {args.dataset} --demographics {args.demographics} --run-name {args.run_name}")
