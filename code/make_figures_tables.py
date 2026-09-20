@@ -1,23 +1,23 @@
 """
 make_figures_tables.py
 ----------------------
-Generate the paper's main-text FIGURES (2-5) and TABLES (Table 1 diseases,
-Table 2 measures) for the pretrained run, and print the figure statistics
-(AUROC/AUPRC/bACC with 95% CIs, Cliff's delta, Spearman rho).
+Generate the paper's main-text FIGURES (2-5) and TABLES (1-2),
+and print the figure statistics (AUROC/AUPRC/bACC with 95% CIs, 
+Cliff's delta, Spearman rho).
 
 Two ways to run (choose exactly one of --dataset / --skip-inference):
     # 1) run the models on the dataset, then build figures + tables
     python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset \\
                                   --demographics /path/to/nmd_opencap_participant_info.csv
-    # 2) skip inference; build straight from the shipped precomputed CSVs
+    # 2) skip inference; build straight from precomputed CSVs (from already inferenced models)
     python make_figures_tables.py --skip-inference \\
                                   --demographics /path/to/nmd_opencap_participant_info.csv
 
 Mode 1 calls inference_models.py to write the prediction CSVs to
-runs/pretrained/severity_csvs/; mode 2 reads them from
-runs/pretrained/severity_csvs/precomputed/. Writes:
-    runs/pretrained/results/figures/   fig2_performance, fig3_severity, fig4_activlim, fig5_tft
-    runs/pretrained/results/tables/    table1_diseases.csv, table2_measures.csv
+runs/<run-name>/severity_csvs/; mode 2 reads them from
+runs/<run-name>/severity_csvs/precomputed/. Writes:
+    runs/<run-name>/results/figures/   fig2_performance, fig3_severity, fig4_activlim, fig5_tft
+    runs/<run-name>/results/tables/    table1_diseases.csv, table2_measures.csv
 """
 import os
 import numpy as np
@@ -35,7 +35,7 @@ from sklearn.metrics import (
 
 
 def view_sequentially(paths):
-    """Show each image in a window; CLOSING it advances to the next (blocking
+    """Show each image in a window; closing it advances to the next (blocking
     plt.show() per image, like the old paper1_code flow). Falls back to opening
     all in the OS default viewer if no interactive matplotlib backend exists."""
     import sys, subprocess
@@ -444,10 +444,11 @@ def plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star):
                        "val_mean":  val_ci[m][0],  "val_lo":  val_ci[m][1],  "val_hi":  val_ci[m][2],
                        "test_mean": test_ci[m][0], "test_lo": test_ci[m][1], "test_hi": test_ci[m][2]}
                       for m in METRICS])
-    print(f"\n  ensemble / pooled-OOF         Val [95% CI]          Test [95% CI]")
+    print(f"\n  {'ensemble / pooled-OOF':<24}{'Val [95% CI]':<24}Test [95% CI]")
     for _, r in s.iterrows():
-        print(f"    {r['Metric']:<6} {r['val_mean']:.3f} [{r['val_lo']:.3f}-{r['val_hi']:.3f}]   "
-              f"{r['test_mean']:.3f} [{r['test_lo']:.3f}-{r['test_hi']:.3f}]")
+        val_cell  = f"{r['val_mean']:.3f} [{r['val_lo']:.3f}-{r['val_hi']:.3f}]"
+        test_cell = f"{r['test_mean']:.3f} [{r['test_lo']:.3f}-{r['test_hi']:.3f}]"
+        print(f"  {'  ' + r['Metric']:<24}{val_cell:<24}{test_cell}")
  
     prec_val,  rec_val,  _ = precision_recall_curve(y_oof,  p_oof)
     prec_test, rec_test, _ = precision_recall_curve(y_true, p_test_ens)
@@ -615,8 +616,7 @@ def plot_fig3(df, threshold_z=None):
 def plot_fig5_tft(df):
     """
     Four-panel scatter: severity_z vs TFTs.
-    Sample: visits with ALL four TFTs (listwise deletion across the four timed
-    tests), regardless of ACTIVLIM. The ACTIVLIM panel (Fig 4) uses its own
+    Sample: held-out-test set visits with ALL four TFTs. The ACTIVLIM panel (Fig 4) uses its own
     activ-only sample, so the two convergent-validity figures have different n.
     X-axis: SDs above mean healthy control.
     """
@@ -848,15 +848,13 @@ DIAG_FULL_NAMES = {
     "SBMA": "Spinobulbar muscular atrophy (SBMA)",
     "ALS":     "Amyotrophic lateral sclerosis (ALS)",
     "BM": "Bethlem myopathy (BM)",
-    "UNKNOWN": "Unknown",
 }
 
 CTL_VALUE   = "CTL"   # value stored in clinical_diagnosis for controls
 CTL_DISPLAY = "CTL"   # how controls are labelled in the output table
 SUMMARY_GROUPS = {"Total NMD", f"Total {CTL_DISPLAY}", "Total"}
 
-# sex is normalized to a numeric code in build_table1 (0 = female, 1 = male),
-# so the female count works whether the source stores "female"/"male" strings
+# sex is encoded numerically in build_table1 (0 = female, 1 = male),
 # (full_demographics_table.csv) or the legacy 0/1 numeric code.
 FEMALE_CODE = 0.0
 
@@ -1073,8 +1071,9 @@ if __name__ == "__main__":
             "       saves the prediction CSVs to runs/<run-name>/severity_csvs/,\n"
             "       then builds the figures + tables.\n"
             "  2) skip inference: --skip-inference --demographics <CSV>\n"
-            "       skips the models and builds figures + tables from the precomputed CSVs\n"
-            "       shipped with the pretrained run (runs/pretrained/severity_csvs/precomputed/).\n\n"
+            "       skips the models and builds figures + tables from a run's existing CSVs\n"
+            "       (pretrained: runs/pretrained/severity_csvs/precomputed/; any other run:\n"
+            "       runs/<run-name>/severity_csvs/).\n\n"
             "Inference writes each run's prediction CSVs to runs/<run-name>/severity_csvs/;\n"
             "the precomputed/ subdir exists only for the shipped pretrained run. All outputs\n"
             "go to runs/<run-name>/ (default run-name: pretrained).\n\n"
@@ -1085,9 +1084,9 @@ if __name__ == "__main__":
             "  --demographics  path to participant info CSV downloaded from Zenodo\n"
             "                  (e.g. ../datadir/nmd_opencap_participant_info.csv)\n"
             "                  (columns: subid, visit, diag, split)\n"
-            "  --skip-inference build from the precomputed CSVs shipped with the pretrained run\n"
-            "                  (runs/pretrained/severity_csvs/precomputed/) instead of running the\n"
-            "                  models; use with --run-name pretrained (the default)\n"
+            "  --skip-inference build from a run's existing CSVs instead of running the models:\n"
+            "                  runs/pretrained/severity_csvs/precomputed/ for --run-name pretrained,\n"
+            "                  or runs/<run-name>/severity_csvs/ for any other run\n"
             "  --run-name      which run under runs/ to use (default: pretrained); applies to both\n"
             "                  modes. With --dataset, inference reads runs/<run-name>/models and\n"
             "                  writes CSVs to runs/<run-name>/severity_csvs/ (figures/tables to\n"
@@ -1104,9 +1103,9 @@ if __name__ == "__main__":
                     help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
                          "runs inference to generate the prediction CSVs")
     ap.add_argument("--skip-inference", action="store_true",
-                    help="skip inference and build from the precomputed CSVs shipped with the "
-                         "pretrained run (runs/pretrained/severity_csvs/precomputed/); use with "
-                         "--run-name pretrained (the default)")
+                    help="skip inference and build from a run's existing CSVs instead of "
+                         "running the models: runs/pretrained/severity_csvs/precomputed/ for "
+                         "--run-name pretrained, or runs/<run-name>/severity_csvs/ otherwise")
     ap.add_argument("--run-name", default="pretrained", metavar="NAME",
                     help="which run under runs/ to use (default: pretrained); applies to both "
                          "modes. With --dataset, inference reads runs/<run-name>/models and writes "
@@ -1140,10 +1139,16 @@ if __name__ == "__main__":
 
     # Prediction CSVs: run inference into severity_csvs/, or use severity_csvs/precomputed/.
     if args.skip_inference:
-        CSV_SRC = os.path.join(RUN_DIR, "severity_csvs", "precomputed")
+        # Only the shipped pretrained run has a precomputed/ subdir; every other
+        # run's CSVs live directly in <run-name>/severity_csvs/.
+        _csvs = os.path.join(RUN_DIR, "severity_csvs")
+        CSV_SRC = os.path.join(_csvs, "precomputed") if args.run_name == "pretrained" else _csvs
     else:
         import inference_models
-        CSV_SRC = inference_models.run_inference(args.dataset, DEMO_CSV, RUN_DIR)
+        # Main-text figures use the transformer only; skip the SVM/MLP baselines
+        # (those are scored by make_supplementary_figures_tables.py).
+        CSV_SRC = inference_models.run_inference(args.dataset, DEMO_CSV, RUN_DIR,
+                                                 include_baselines=False)
 
     TEST_CSV = os.path.join(CSV_SRC, f"test_severity_transformer_{args.run_name}.csv")
     OOF_CSV  = os.path.join(CSV_SRC, f"oof_validation_severity_transformer_{args.run_name}.csv")

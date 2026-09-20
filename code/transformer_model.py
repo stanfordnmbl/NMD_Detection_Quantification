@@ -38,6 +38,7 @@ VisitTransformerPE (positional encoding)
     of 128 is conservative and covers all expected cases.
 """
 
+import warnings
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -82,7 +83,11 @@ class VisitTransformer(nn.Module):
             norm_first=True,
             activation="gelu",
         )
-        self.encoder  = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
+        # norm_first=True makes TransformerEncoder skip the nested-tensor fast path
+        # and emit a benign UserWarning on every construction — silence just that one.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*enable_nested_tensor.*")
+            self.encoder  = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
         self.cls_head = nn.Linear(d_model, 1)
 
         self.pool_stride   = int(pool_stride) if pool_stride else 1

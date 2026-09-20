@@ -1,9 +1,9 @@
 """
 make_supplementary_figures_tables.py
 ------------------------------------
-Generate the supplementary FIGURE (per-measure distribution histograms) and the
+Generate the supplementary FIGURES (per-measure distribution histograms) and the
 three supplementary TABLES (classification, convergent validity, kinematic
-parameters) for the pretrained run.
+parameters).
 
 Two ways to run (choose exactly one of --dataset / --skip-inference):
     # 1) run the models on the dataset, then build the supplementary outputs
@@ -14,10 +14,10 @@ Two ways to run (choose exactly one of --dataset / --skip-inference):
                                                 --demographics /path/to/nmd_opencap_participant_info.csv
 
 Mode 1 calls inference_models.py to write the prediction CSVs to
-runs/pretrained/severity_csvs/; mode 2 reads them from
-runs/pretrained/severity_csvs/precomputed/. Writes:
-    runs/pretrained/results/supp_figures/  supplementary_fig1_distributions.{png,pdf}
-    runs/pretrained/results/supp_tables/   supplementary_table{1,2,3}_*.csv
+runs/<run-name>/severity_csvs/; mode 2 reads them from
+runs/<run-name>/severity_csvs/precomputed/. Writes:
+    runs/<run-name>/results/supp_figures/  supplementary_fig1_distributions.{png,pdf}
+    runs/<run-name>/results/supp_tables/   supplementary_table{1,2,3}_*.csv
 """
 import os
 import numpy as np
@@ -451,8 +451,9 @@ if __name__ == "__main__":
             "       saves the prediction CSVs to runs/<run-name>/severity_csvs/,\n"
             "       then builds the supplementary figure + tables.\n"
             "  2) skip inference: --skip-inference --demographics <CSV>\n"
-            "       skips the models and builds them from the precomputed CSVs shipped with\n"
-            "       the pretrained run (runs/pretrained/severity_csvs/precomputed/).\n\n"
+            "       skips the models and builds them from a run's existing CSVs\n"
+            "       (pretrained: runs/pretrained/severity_csvs/precomputed/; any other run:\n"
+            "       runs/<run-name>/severity_csvs/).\n\n"
             "Inference writes each run's prediction CSVs to runs/<run-name>/severity_csvs/;\n"
             "the precomputed/ subdir exists only for the shipped pretrained run.\n\n"
             "inputs:\n"
@@ -462,9 +463,9 @@ if __name__ == "__main__":
             "  --demographics  path to participant info CSV downloaded from Zenodo\n"
             "                  (e.g. ../datadir/nmd_opencap_participant_info.csv)\n"
             "                  (columns: subid, visit, diag, split)\n"
-            "  --skip-inference build from the precomputed CSVs shipped with the pretrained run\n"
-            "                  (runs/pretrained/severity_csvs/precomputed/) instead of running the\n"
-            "                  models; use with --run-name pretrained (the default)\n"
+            "  --skip-inference build from a run's existing CSVs instead of running the models:\n"
+            "                  runs/pretrained/severity_csvs/precomputed/ for --run-name pretrained,\n"
+            "                  or runs/<run-name>/severity_csvs/ for any other run\n"
             "  --run-name      which run under runs/ to use (default: pretrained); applies to both\n"
             "                  modes. With --dataset, inference reads runs/<run-name>/models and\n"
             "                  writes CSVs to runs/<run-name>/severity_csvs/ (supplementary outputs\n"
@@ -481,9 +482,9 @@ if __name__ == "__main__":
                     help="dataset root (.../datadir/Neuromuscular_OpenCap_Dataset); "
                          "runs inference to generate the prediction CSVs")
     ap.add_argument("--skip-inference", action="store_true",
-                    help="skip inference and build from the precomputed CSVs shipped with the "
-                         "pretrained run (runs/pretrained/severity_csvs/precomputed/); use with "
-                         "--run-name pretrained (the default)")
+                    help="skip inference and build from a run's existing CSVs instead of "
+                         "running the models: runs/pretrained/severity_csvs/precomputed/ for "
+                         "--run-name pretrained, or runs/<run-name>/severity_csvs/ otherwise")
     ap.add_argument("--run-name", default="pretrained", metavar="NAME",
                     help="which run under runs/ to use (default: pretrained); applies to both "
                          "modes. With --dataset, inference reads runs/<run-name>/models and writes "
@@ -514,7 +515,10 @@ if __name__ == "__main__":
 
     # Prediction CSVs: run inference into severity_csvs/, or use severity_csvs/precomputed/.
     if args.skip_inference:
-        CSV_SRC = os.path.join(RUN_DIR, "severity_csvs", "precomputed")
+        # Only the shipped pretrained run has a precomputed/ subdir; every other
+        # run's CSVs live directly in <run-name>/severity_csvs/.
+        _csvs = os.path.join(RUN_DIR, "severity_csvs")
+        CSV_SRC = os.path.join(_csvs, "precomputed") if args.run_name == "pretrained" else _csvs
     else:
         import inference_models
         CSV_SRC = inference_models.run_inference(args.dataset, DEMO, RUN_DIR)
@@ -536,7 +540,7 @@ if __name__ == "__main__":
     clt.render_supp_tables(OUTDIR)
 
     # View the supplementary figure + rendered supp-table images one at a time:
-    # each opens in a window and CLOSING it advances to the next.
+    # each opens in a window and closing it advances to the next.
     to_view  = [os.path.join(FIG_DIR, "supplementary_fig1_distributions.png")]
     to_view += [os.path.join(OUTDIR, "latex_tables", f"{n}.png") for n in
                 ("supp_table1_classification", "supp_table2_convergent", "supp_table3_kinematic")]

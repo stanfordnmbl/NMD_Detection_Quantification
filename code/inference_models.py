@@ -22,12 +22,15 @@ import pandas as pd
 import train_models as tm   # model + inference functions
 
 
-def run_inference(dataset_root, demographics_csv, run_dir):
-    """Generate and save the transformer + SVM/MLP prediction CSVs for a run.
+def run_inference(dataset_root, demographics_csv, run_dir, include_baselines=True):
+    """Generate and save the prediction CSVs for a run.
 
     Reads the fold models from <run_dir>/models/ and the kinematics from
-    dataset_root, and writes the four severity CSVs into <run_dir>/severity_csvs/.
-    Returns that severity_csvs directory. (Never writes to severity_csvs/precomputed.)
+    dataset_root, and writes the severity CSVs into <run_dir>/severity_csvs/.
+    Always writes the transformer test + OOF CSVs (the main-text figures);
+    when include_baselines is True (the default) it also scores the SVM/MLP
+    baselines (needed only for the supplementary tables). Returns that
+    severity_csvs directory. (Never writes to severity_csvs/precomputed.)
     """
     dataset_root     = os.path.expanduser(dataset_root)
     demographics_csv = os.path.expanduser(demographics_csv)
@@ -52,9 +55,10 @@ def run_inference(dataset_root, demographics_csv, run_dir):
             "Expected sub-*/visit-*/ses-*/Kinematics/*.mot (the unzipped dataset).")
     if not os.path.isfile(demographics_csv):
         raise FileNotFoundError(f"demographics CSV not found: {demographics_csv}")
-    missing = ([] if os.path.isdir(tm.MODEL_DIR) else ["Transformer"]) + \
-              [n.upper() for n in tm.MODELS
-               if not os.path.isdir(os.path.join(tm.OUTPUT_DIR, f"cv_models_{n}{tm.VARIANT_SUFFIX}"))]
+    missing = [] if os.path.isdir(tm.MODEL_DIR) else ["Transformer"]
+    if include_baselines:
+        missing += [n.upper() for n in tm.MODELS
+                    if not os.path.isdir(os.path.join(tm.OUTPUT_DIR, f"cv_models_{n}{tm.VARIANT_SUFFIX}"))]
     if missing:
         raise FileNotFoundError(
             f"no trained fold models for {', '.join(missing)} under {tm.OUTPUT_DIR}")
@@ -68,8 +72,9 @@ def run_inference(dataset_root, demographics_csv, run_dir):
 
     tm.run_test_inference(test, demo_df)                 # -> test_severity_transformer_<run>.csv
     tm.compute_oof_continuous(samples, out_csv=oof_csv)  # -> oof_validation_severity_transformer_<run>.csv
-    for name in tm.MODELS:                               # svm, mlp
-        tm.infer_from_saved(name)                        # -> test_severity_{name}_<run>.csv
+    if include_baselines:
+        for name in tm.MODELS:                           # svm, mlp
+            tm.infer_from_saved(name)                    # -> test_severity_{name}_<run>.csv
     return csv_dir
 
 
