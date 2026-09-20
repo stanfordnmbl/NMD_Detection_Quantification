@@ -50,12 +50,12 @@ Alternatively, if you do not want to downoad the entire dataset, you can reprodu
 (see Section 3 Option 2 below) and just download the `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage 
 and save that to your `datadir`.
 
-```
-$ mkdir datadir
-$ cd datadir
-$ zenodo_get -d <ZENODO_DOI>
-$ cd ..
-$ unzip datadir/Neuromuscular_OpenCap_Dataset.zip -d datadir
+```bash
+mkdir datadir
+cd datadir
+zenodo_get -d <ZENODO_DOI>
+cd ..
+unzip datadir/Neuromuscular_OpenCap_Dataset.zip -d datadir
 ```
 
 `datadir/` then contains the demographics CSV and the dataset––one folder per
@@ -90,10 +90,10 @@ datadir
 
 In order to reproduce our paper results, run the following:
 
-```
-$ DATASET=datadir/Neuromuscular_OpenCap_Dataset
-$ DEMO=datadir/nmd_opencap_participant_info.csv
-$ cd code
+```bash
+DATASET=datadir/Neuromuscular_OpenCap_Dataset
+DEMO=datadir/nmd_opencap_participant_info.csv
+cd code
 ```
 
 Every script accepts `--help` for its full input description. Both `make_*` scripts take `--run-name` to 
@@ -106,9 +106,9 @@ There are two ways to run each script — choose one:
 models over the dataset, saves the prediction CSVs to
 `runs/pretrained/severity_csvs/`, then builds the figures and tables:
 
-```
-$ python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
-$ python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+```bash
+python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 ```
 
 **Option 2 — skip inference.** The script builds the figures and tables straight
@@ -116,9 +116,9 @@ from the CSVs generated from the already inferenced released models, located in
 `runs/pretrained/severity_csvs/precomputed/`. This needs only the demographics CSV 
 (not the large dataset download).
 
-```
-$ python make_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
-$ python make_supplementary_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
+```bash
+python make_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
+python make_supplementary_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
 ```
 
 Either way, each script prints its statistics to the terminal and opens the
@@ -140,8 +140,8 @@ To retrain from scratch instead of using the released models, run `train_models.
 with the run name `pretrained` so it overwrites `runs/pretrained/models/` with your
 freshly trained fold models, then regenerate the results with Option 1 above.
 
-```
-$ python train_models.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+```bash
+python train_models.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 ```
 
 `train_models.py` cross-validates the transformer and the SVM/MLP baselines on one
@@ -153,7 +153,7 @@ writes models only; the transformer's cross-validation takes ~2.5 h on a single 
 Then rebuild every figure and table from your freshly trained models (Option 1
 re-runs inference on them):
 
-```
-$ python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
-$ python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+```bash
+python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 ```
