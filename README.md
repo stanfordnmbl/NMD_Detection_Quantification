@@ -90,25 +90,25 @@ datadir
 
 In order to reproduce our paper results, you will need to run `make_figures_tables.py` and `make_supplementary_figures_tables.py`.
 
-Both of these scripts accept `--help`, which explains which command line inputs to use, and take `--run-name` to 
+Both of these scripts accept `--help`, which explains which command line inputs to use, and require `--run-name` to 
 select which run under `runs/` to use. Use the **same** run name across training and figure/table
 generation. Use `--run-name pretrained` to reproduce our exact paper results with the released models.
 
 There are two ways to run each script — choose one:
 
-**Option 1 — run the models on the dataset.** The script runs the released fold
-models over the dataset, saves the prediction CSVs to
-`runs/pretrained/severity_csvs/`, then builds the figures and tables:
+**Option 1 — inference the trained models and re-create our paper figures/tables (requires the full dataset downloaded and unzipped)**
+This option inferences each fold's model with its out-of-fold data, saves the prediction CSVs to `runs/pretrained/severity_csvs/`, 
+and builds the figures and tables:
 
 ```bash
 python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv --run-name pretrained
 python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
 ```
 
-**Option 2 — skip inference.** The script builds the figures and tables straight
-from the CSVs generated from the already inferenced released models, located in 
-`runs/pretrained/severity_csvs/precomputed/`. This needs only the demographics CSV 
-(not the large dataset download).
+**Option 2 `--skip inference (only nmd_opencap_participant_info.csv required).** 
+This option builds the figures and tables straight from the CSVs generated from the already inferenced released models, 
+which are located in `runs/pretrained/severity_csvs/precomputed/`. This needs only the demographics CSV and allows you 
+to reproduce our paper results without having to download and unzip the Neuromuscular OpenCap Dataset. 
 
 ```bash
 python make_figures_tables.py --skip-inference --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
