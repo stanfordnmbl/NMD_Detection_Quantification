@@ -1,4 +1,4 @@
-## Detecting and Quantifying Neuromuscular Diseases from Smartphone Video-Derived Kinematics
+# Detecting and Quantifying Neuromuscular Diseases from Smartphone Video-Derived Kinematics
 
 This repository contains the code and released models needed to reproduce the disease
 detection and quantification results from the following manuscript:
@@ -7,12 +7,12 @@ detection and quantification results from the following manuscript:
 
 > Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Jennifer L. Hicks, Scott Uhlrich, John W. Day, Constance de Monts, Tina Duong,  Scott L. Delp
 
-The Example Walkthrough code has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
+The Example Walkthrough has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
 
-### Example Walkthrough 
+## Example Walkthrough 
 *requires environment management (we recommend miniforge or mamba)
 
-#### 1. Setup
+### 1. Setup
 
 Install [(miniforge, miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://mamba.readthedocs.io/en/stable/installation/mamba-installation.html) Python environment manager. Note that if you use `mamba`, swap `conda` for `mamba` in the below code block.
 
@@ -41,7 +41,7 @@ NMD_Detection_Quantification
         └── results          # figures + tables (written by the make_* scripts)
 ```
 
-#### 2. Downloading the Data
+### 2. Downloading the Data
 
 The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
 are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
@@ -86,7 +86,7 @@ datadir
 > If you only plan to use **Option 2** below (`--skip-inference`), you just need
 > `nmd_opencap_participant_info.csv` (not the dataset).
 
-#### 3. Reproduce the paper results
+### 3. Reproduce the paper results
 
 In order to reproduce our paper results, you will need to run `make_figures_tables.py` and `make_supplementary_figures_tables.py`.
 
@@ -128,7 +128,7 @@ figures and tables for review (close one to see the next). Outputs land under
 - **`supp_tables/`** — **Supp. Tables 1–3**: transformer vs SVM vs MLP classification,
   convergent validity, and the kinematic parameters; LaTeX under `latex_tables/`.
 
-## 4. Train the models yourself and then run our analyses
+### 4. Train the models yourself and then run our analyses
 
 To retrain the models from scratch instead of using the released models, run `train_models.py`
 with a new run name (e.g. `retrain_1`). This will run cross-validation on the transformer,
@@ -151,7 +151,7 @@ python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromusc
 ```
 Note that your new run results will be slightly different than our paper figures if you have retrained the models but should be very similar. 
 
-### Citing This Work
+## Citing This Work
 
 We invite you to cite both our [preprint](TODO ADD LINK) and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
 
