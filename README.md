@@ -1,10 +1,7 @@
 ## Detecting and Quantifying Neuromuscular Diseases from Smartphone Video-Derived Kinematics
 
-This repository contains the code and released models to reproduce the disease
-detection and quantification results from our paper. The trained fold models are included
-in this repo (located at `runs/pretrained/models/`), along with the precomputed post-inference
-disease prediction values (located at `runs/pretrained/severity_csvs/precomputed/`), so you can
-regenerate every figure, table, and statistic in the below manuscript:
+This repository contains the code and released models needed to reproduce the disease
+detection and quantification results from the following manuscript:
 
 > **Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data**
 
@@ -12,12 +9,17 @@ regenerate every figure, table, and statistic in the below manuscript:
 
 This code has been tested on Mac (Apple Silicon) and Windows machines. 
 
-### Example Walkthrough (requires environment management — we recommend miniforge)
+## Example Walkthrough 
+*requires environment management (we recommend miniforge or mamba)
 
 ## 1. Setup
 
+If you don't already have an environment manager, install the [(miniforge, miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://mamba.readthedocs.io/en/stable/installation/mamba-installation.html) Python environment manager. 
+
+Next, execute the following steps: 
+
 ```
-$ cd [path_to_empty_working_directory]
+$ cd [path/to/empty/working/directory]
 $ git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
 $ cd NMD_Detection_Quantification
 $ conda env create -f environment.yml -n nmd-opencap
@@ -41,10 +43,12 @@ NMD_Detection_Quantification
 
 ## 2. Downloading the Data
 
-The de-identified Neuromuscular OpenCap Dataset and demographics CSV 
-(nmd_opencap_participant_info.csv) are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
-Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` 
-comes with the environment; or download the two files from the Zenodo page):
+The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
+are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
+Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes with the environment). 
+Alternatively, if you do not want to downoad the entire dataset, you can reproduce our results using the pre-inferenced CSVs 
+(see Section 3 Option 2 below) and just download the `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage 
+and save that to your `datadir`.
 
 ```
 $ mkdir datadir
@@ -54,10 +58,9 @@ $ cd ..
 $ unzip datadir/Neuromuscular_OpenCap_Dataset.zip -d datadir
 ```
 
-`datadir/` then contains the demographics CSV and the dataset — one folder per
+`datadir/` then contains the demographics CSV and the dataset––one folder per
 participant, each with per-visit, per-session OpenCap outputs. The pipeline reads
-the joint-angle time series in `Kinematics/*.mot`; `Markers/` and `Model/` are the
-other OpenCap outputs and are not required to run the code.
+the time series in `Kinematics/*.mot`.
 
 ```
 datadir
@@ -66,12 +69,12 @@ datadir
     ├── sub-001
     │   └── visit-0
     │       ├── ses-1
-    │       │   ├── Kinematics            # OpenSim joint angles (model inputs)
+    │       │   ├── Kinematics            # OpenSim joint coordinates (model inputs)
     │       │   │   ├── sub-001_visit-0_ses-1_task-curls.mot
     │       │   │   ├── sub-001_visit-0_ses-1_task-jump.mot
     │       │   │   └── sub-001_visit-0_ses-1_task-toe_stand.mot
     │       │   ├── Markers               # 3D marker trajectories (.trc)
-    │       │   ├── Model                 # scaled OpenSim model (.osim)
+    │       │   ├── Model                 # scaled OpenSim musculoskeletal model (.osim)
     │       │   └── sub-001_visit-0_ses-1_metadata.yaml
     │       └── ses-2
     │           └── ...
@@ -93,9 +96,9 @@ $ DEMO=datadir/nmd_opencap_participant_info.csv
 $ cd code
 ```
 
-> Both of these scripts take `--run-name` to select which run under `runs/` to use.
-> Use the **same** run name across training and figure/table
-> generation. Use `--run-nmae pretrained` to reproduce our exact paper results with the released models.
+Every script accepts `--help` for its full input description. Both `make_*` scripts take `--run-name` to 
+select which run under `runs/` to use. Use the **same** run name across training and figure/table
+generation. Use `--run-name pretrained` to reproduce our exact paper results with the released models.
 
 There are two ways to run each script — choose one:
 
@@ -154,5 +157,3 @@ re-runs inference on them):
 $ python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 $ python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
 ```
-
-Every script accepts `--help` for its full input description.
