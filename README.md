@@ -10,7 +10,7 @@ regenerate every figure, table, and statistic in the below manuscript:
 
 > Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Jennifer L. Hicks, Scott Uhlrich, John W. Day, Constance de Monts, Tina Duong,  Scott L. Delp
 
-This code has been tested on MacOS and Windows machines. 
+This code has been tested on Mac (Apple Silicon) and Windows machines. 
 
 ### Example Walkthrough (requires environment management — we recommend miniforge)
 
@@ -18,32 +18,33 @@ This code has been tested on MacOS and Windows machines.
 
 ```
 $ cd [path_to_empty_working_directory]
-$ git clone <REPO_URL> NMD_Detection_Quantification
+$ git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
 $ cd NMD_Detection_Quantification
 $ conda env create -f environment.yml -n nmd-opencap
 $ conda activate nmd-opencap
 ```
 
-The working directory is then organized as:
+The working directory will be organized as follows:
 
 ```
 NMD_Detection_Quantification
 ├── README.md
 ├── environment.yml
-├── code                    # the pipeline scripts
+├── code                     # all scripts
 └── runs
     └── pretrained
-        ├── models          # released, trained fold models
-        ├── severity_csvs   # prediction CSVs (precomputed/ ships with the repo;
-        │                    #   the inference option writes fresh CSVs here)
+        ├── models           # released, trained fold models
+        ├── severity_csvs    # prediction CSVs (precomputed/ ships with the repo;
+        │                    # the inference option writes fresh CSVs here)
         └── results          # figures + tables (written by the make_* scripts)
 ```
 
 ## 2. Downloading the Data
 
-The de-identified dataset and demographics are hosted on Zenodo: <ZENODO_DOI>.
-Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes
-with the environment; or download the two files from the Zenodo page):
+The de-identified Neuromuscular OpenCap Dataset and demographics CSV 
+(nmd_opencap_participant_info.csv) are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
+Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` 
+comes with the environment; or download the two files from the Zenodo page):
 
 ```
 $ mkdir datadir
