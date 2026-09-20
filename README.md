@@ -7,23 +7,23 @@ detection and quantification results from the following manuscript:
 
 > Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Jennifer L. Hicks, Scott Uhlrich, John W. Day, Constance de Monts, Tina Duong,  Scott L. Delp
 
-This code has been tested on Mac (Apple Silicon) and Windows machines. 
+The Example Walkthrough code has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
 
 ## Example Walkthrough 
 *requires environment management (we recommend miniforge or mamba)
 
 ## 1. Setup
 
-If you don't already have an environment manager, install the [(miniforge, miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://mamba.readthedocs.io/en/stable/installation/mamba-installation.html) Python environment manager. 
+Install [(miniforge, miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://mamba.readthedocs.io/en/stable/installation/mamba-installation.html) Python environment manager. Note that if you use `mamba`, swap `conda` for `mamba` in the below code block.
 
 Next, execute the following steps: 
 
-```
-$ cd [path/to/empty/working/directory]
-$ git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
-$ cd NMD_Detection_Quantification
-$ conda env create -f environment.yml -n nmd-opencap
-$ conda activate nmd-opencap
+```bash
+cd [path/to/empty/working/directory]
+git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
+cd NMD_Detection_Quantification
+conda env create -f environment.yml -n nmd-opencap
+conda activate nmd-opencap
 ```
 
 The working directory will be organized as follows:
@@ -88,15 +88,9 @@ datadir
 
 ## 3. Reproduce the paper results
 
-In order to reproduce our paper results, run the following:
+In order to reproduce our paper results, you will need to run `make_figures_tables.py` and `make_supplementary_figures_tables.py`.
 
-```bash
-DATASET=datadir/Neuromuscular_OpenCap_Dataset
-DEMO=datadir/nmd_opencap_participant_info.csv
-cd code
-```
-
-Every script accepts `--help` for its full input description. Both `make_*` scripts take `--run-name` to 
+Both of these scripts accept `--help`, which explains which command line inputs to use, and take `--run-name` to 
 select which run under `runs/` to use. Use the **same** run name across training and figure/table
 generation. Use `--run-name pretrained` to reproduce our exact paper results with the released models.
 
@@ -107,8 +101,8 @@ models over the dataset, saves the prediction CSVs to
 `runs/pretrained/severity_csvs/`, then builds the figures and tables:
 
 ```bash
-python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
-python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv --run-name pretrained
+python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
 ```
 
 **Option 2 — skip inference.** The script builds the figures and tables straight
@@ -117,8 +111,8 @@ from the CSVs generated from the already inferenced released models, located in
 (not the large dataset download).
 
 ```bash
-python make_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
-python make_supplementary_figures_tables.py --skip-inference --demographics $DEMO --run-name pretrained
+python make_figures_tables.py --skip-inference --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
+python make_supplementary_figures_tables.py --skip-inference --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
 ```
 
 Either way, each script prints its statistics to the terminal and opens the
@@ -136,24 +130,31 @@ figures and tables for review (close one to see the next). Outputs land under
 
 ## 4. Train the models yourself and then run our analyses
 
-To retrain from scratch instead of using the released models, run `train_models.py`
-with the run name `pretrained` so it overwrites `runs/pretrained/models/` with your
-freshly trained fold models, then regenerate the results with Option 1 above.
+To retrain the models from scratch instead of using the released models, run `train_models.py`
+with a new run name (e.g. `retrain_1`). This will run cross-validation on the transformer,
+SVM, and MLP on one shared 5-fold GroupKFold split (grouped by participant), and enforces the
+same held-out-test set as the one used to train the models we've released. 
+freshly trained fold models, then regenerate the results with Option 1 above. 
 
 ```bash
-python train_models.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+python train_models.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset  --demographics /path/to/datadir/nmd_opencap_participant_info.csv ---run-name <run-name>
 ```
 
-`train_models.py` cross-validates the transformer and the SVM/MLP baselines on one
-shared 5-fold GroupKFold split (grouped by participant), and uses the same held-out
-test set as our results — the split is fixed by the `split` column in the
-demographics CSV, so the held-out test visits never enter cross-validation. It
-writes models only; the transformer's cross-validation takes ~2.5 h on a single GPU.
+This will take approiximately 2.5h to run on a single GPU and writes the freshly trained models 
+to `runs/<run-name>/models`. 
 
-Then rebuild every figure and table from your freshly trained models (Option 1
-re-runs inference on them):
+Next, you can inference these models and rebuild every figure and table from your new models using the following:
 
 ```bash
-python make_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
-python make_supplementary_figures_tables.py --dataset $DATASET --demographics $DEMO --run-name pretrained
+python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv --run-name <run-name>
+python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv ---run-name <run-name>
 ```
+Note that your new run results will be slightly different than our paper figures if you have retrained the models but should be very similar. 
+
+## Citing This Work
+
+We invite you to cite both our [preprint](TODO ADD LINK) and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
+
+> Covitz, S., et al. Neuromuscular OpenCap Dataset. Zenodo https://doi.org/https://doi.org/10.5281/zenodo.22309771 (2026). 
+
+> Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. bioRxiv (2026). doi: [TODO: ADD bioRxiv DOI]
