@@ -4,8 +4,13 @@ This repository contains the code and released models to reproduce the disease
 detection and quantification results from our paper. The trained fold models are included
 in this repo (located at `runs/pretrained/models/`), along with the precomputed post-inference
 disease prediction values (located at `runs/pretrained/severity_csvs/precomputed/`), so you can
-regenerate every figure, table, and statistic in our manuscript **without retraining** 
-and, if you use Option 2 below, **without even downloading the dataset**.
+regenerate every figure, table, and statistic in the below manuscript:
+
+> **Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data**
+
+> Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Jennifer L. Hicks, Scott Uhlrich, John W. Day, Constance de Monts, Tina Duong,  Scott L. Delp
+
+This code has been tested on MacOS and Windows machines. 
 
 ### Example Walkthrough (requires environment management — we recommend miniforge)
 
