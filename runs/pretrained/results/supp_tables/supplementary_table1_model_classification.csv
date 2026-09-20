@@ -1,7 +1,0 @@
-Section,Measure,Transformer,SVM,MLP
-Test-set performance  (mean ± SD across 5 CV fold models),AUROC,0.95 ± 0.01,0.96 ± 0.01,0.94 ± 0.01
-Test-set performance  (mean ± SD across 5 CV fold models),AUPRC,0.98 ± 0.00,0.99 ± 0.00,0.98 ± 0.00
-Test-set performance  (mean ± SD across 5 CV fold models),bACC,0.88 ± 0.05,0.82 ± 0.02,0.83 ± 0.03
-Difference vs Transformer  [95% CI],AUROC,reference,"-0.01 [-0.06, +0.04]","-0.02 [-0.09, +0.03]"
-Difference vs Transformer  [95% CI],AUPRC,reference,"-0.00 [-0.02, +0.01]","-0.01 [-0.03, +0.01]"
-Difference vs Transformer  [95% CI],bACC,reference,"-0.10 [-0.21, +0.01]","-0.07 [-0.17, +0.00]"
