@@ -568,7 +568,7 @@ def plot_fig3(df, threshold_z=None):
                     c=[PALETTE.get(str(x), "0.2") for x in nd.clinical_diagnosis],
                     alpha=0.9, edgecolors="white", linewidths=0.4, zorder=3)
         axA.invert_yaxis(); axA.set_xlim(XLO, XHI); add_ctl_mean_shade(axA, 0.3)
-        axA.text(0.97, 0.95, f"Cliff's δ = {pt:.2f}\n[{lo:.2f}, {hi:.2f}]",
+        axA.text(0.97, 0.95, f"Cliff's δ = {pt:.2f}\n95% CI [{lo:.2f}, {hi:.2f}]",
                  transform=axA.transAxes, ha="right", va="top", fontsize=9.5, color="0.2",
                  bbox=dict(facecolor="white", edgecolor="0.85", alpha=0.92))
         axA.set_title(f"Severity: NMD vs {disp('CTL')}", fontsize=16, pad=4, color="0.2")
