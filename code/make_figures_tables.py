@@ -870,16 +870,17 @@ def _make_row(label, subset):
 
 
 def build_rows(data):
-    """Per-group rows plus Total NMD / Total TYP / Total, for one dedup level."""
-    rows = []
+    """Total NMD header, then per-disease NMD subgroups (indented), then Total CTL
+    and the grand Total, for one dedup level. The leading spaces on subgroup labels
+    mark them as indented sub-rows for the renderer."""
+    nmd = data[data["clinical_diagnosis"] != CTL_VALUE]
+    ctl = data[data["clinical_diagnosis"] == CTL_VALUE]
+
+    rows = [_make_row("Total NMD", nmd)]
     for diag in T1_DIAG_ORDER:
         sub = data[data["clinical_diagnosis"] == diag]
         if len(sub) > 0:
             rows.append(_make_row(f"  {DIAG_FULL_NAMES.get(diag, diag)}", sub))
-
-    nmd = data[data["clinical_diagnosis"] != CTL_VALUE]
-    ctl = data[data["clinical_diagnosis"] == CTL_VALUE]
-    rows.append(_make_row("Total NMD", nmd))
     rows.append(_make_row(f"Total {CTL_DISPLAY}", ctl))
     rows.append(_make_row("Total", data))
     return rows

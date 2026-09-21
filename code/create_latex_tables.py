@@ -110,24 +110,25 @@ def table1_body():
     part_n  = df.columns[1]      # "Participant n (total=415)"
     part_f  = df.columns[2]      # "Participant Female, n (%)"
     visit_n = df.columns[3]      # "Visit n (total=675)"
-    totals  = {"Total NMD", "Total CTL", "Total"}
+    rule_above = {"Total CTL", "Total"}   # horizontal line before these rows
+    bold_rows  = {"Total"}                 # bold only the grand total
 
     lines = [r"\begin{tabular}{lrrr}", r"\toprule",
              r"\textbf{Group} & \makecell[r]{\textbf{Participants}\\\textbf{(n)}} & "
              r"\makecell[r]{\textbf{Female}\\\textbf{n (\%)}} & "
              r"\makecell[r]{\textbf{Visits}\\\textbf{(n)}} \\",
              r"\midrule"]
-    prev_total = False
     for _, r in df.iterrows():
-        g = str(r[grp_col]).strip()
-        is_total = g in totals
-        if is_total and not prev_total:
+        raw      = str(r[grp_col])
+        g        = raw.strip()
+        indented = raw != raw.lstrip()     # subgroup rows carry leading spaces
+        label    = (r"\hspace{1.5em}" + esc(g)) if indented else esc(g)
+        if g in rule_above:
             lines.append(r"\midrule")
-        cells = [g, str(r[part_n]), esc(r[part_f]), str(r[visit_n])]
-        if is_total:
+        cells = [label, str(r[part_n]), esc(r[part_f]), str(r[visit_n])]
+        if g in bold_rows:
             cells = [rf"\textbf{{{c}}}" for c in cells]
         lines.append(" & ".join(cells) + r" \\")
-        prev_total = is_total
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
 
