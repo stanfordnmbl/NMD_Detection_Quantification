@@ -196,10 +196,10 @@ def style_axis_corr(ax):
     ax.grid(False)
  
  
-def panel_label(ax, label, x=-0.05, y=1.02):
+def panel_label(ax, label, x=-0.05, y=1.02, size=13):
     # top-left corner, in line with the (centred) subplot title
     ax.text(x, y, label, transform=ax.transAxes,
-            fontsize=13, fontweight="bold", va="bottom", ha="right", color="0.2")
+            fontsize=size, fontweight="bold", va="bottom", ha="right", color="0.2")
  
  
 def add_negative_shade(ax, alpha=0.30):
@@ -571,11 +571,11 @@ def plot_fig3(df, threshold_z=None):
         axA.text(0.97, 0.95, f"Cliff's δ = {pt:.2f}\n[{lo:.2f}, {hi:.2f}]",
                  transform=axA.transAxes, ha="right", va="top", fontsize=9.5, color="0.2",
                  bbox=dict(facecolor="white", edgecolor="0.85", alpha=0.92))
-        axA.set_title(f"Severity: NMD vs {disp('CTL')}", fontsize=14, pad=4, color="0.2")
-        panel_label(axA, la); axA.set_xlabel(X_LABEL_SEVERITY, fontsize=10, color="0.2")
+        axA.set_title(f"Severity: NMD vs {disp('CTL')}", fontsize=16, pad=4, color="0.2")
+        panel_label(axA, la, size=22); axA.set_xlabel(X_LABEL_SEVERITY, fontsize=13, color="0.2")
         for sp in ["top", "right", "left"]:
             axA.spines[sp].set_visible(False)
-        axA.spines["bottom"].set_color("0.75"); axA.tick_params(labelsize=10, colors="0.35"); axA.grid(False)
+        axA.spines["bottom"].set_color("0.75"); axA.tick_params(labelsize=13, colors="0.35"); axA.grid(False)
         labs = [q for q in DIAG_ORDER if (d.clinical_diagnosis == q).any()]
         for i, q in enumerate(labs, 1):
             vals = d.loc[d.clinical_diagnosis == q, "severity_z"].to_numpy()
@@ -590,24 +590,25 @@ def plot_fig3(df, threshold_z=None):
         axB.set_yticks(range(1, len(labs) + 1))
         axB.set_yticklabels([f"{disp(q)} (n={cnt[q]})" for q in labs])
         axB.invert_yaxis(); axB.set_xlim(XLO, XHI); add_ctl_mean_shade(axB, 0.3)
-        axB.set_title("Severity by diagnosis", fontsize=14, pad=4, color="0.2")
-        panel_label(axB, lb); axB.set_xlabel(X_LABEL_SEVERITY, fontsize=10, color="0.2")
+        axB.set_title("Severity by diagnosis", fontsize=16, pad=4, color="0.2")
+        panel_label(axB, lb, size=22); axB.set_xlabel(X_LABEL_SEVERITY, fontsize=13, color="0.2")
         for sp in ["top", "right", "left"]:
             axB.spines[sp].set_visible(False)
-        axB.spines["bottom"].set_color("0.75"); axB.tick_params(labelsize=10, colors="0.35"); axB.grid(False)
+        axB.spines["bottom"].set_color("0.75"); axB.tick_params(labelsize=13, colors="0.35"); axB.grid(False)
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 8.6),
-                             gridspec_kw={"wspace": 0.42, "hspace": 0.30, "left": 0.13})
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10.4),
+                             gridspec_kw={"wspace": 0.42, "hspace": 0.42,
+                                          "left": 0.15, "right": 0.985})
     draw_pair(axes[0, 0], axes[0, 1], test, "a", "b")
     draw_pair(axes[1, 0], axes[1, 1], oof, "c", "d")
     fig.canvas.draw()
     _cy = lambda ax: (ax.get_position().y0 + ax.get_position().y1) / 2
-    fig.text(0.045, _cy(axes[0, 0]),
+    fig.text(0.03, _cy(axes[0, 0]),
              f"Held-out test  (n={int(test['clinical_diagnosis'].notna().sum())})",
-             rotation=90, va="center", ha="center", fontsize=13, color="0.1", fontweight="bold")
-    fig.text(0.045, _cy(axes[1, 0]),
+             rotation=90, va="center", ha="center", fontsize=16, color="0.1", fontweight="bold")
+    fig.text(0.03, _cy(axes[1, 0]),
              f"OOF validation  (n={int(oof['clinical_diagnosis'].notna().sum())})",
-             rotation=90, va="center", ha="center", fontsize=13, color="0.1", fontweight="bold")
+             rotation=90, va="center", ha="center", fontsize=16, color="0.1", fontweight="bold")
     savefig(fig, "fig3_severity")
 
 
