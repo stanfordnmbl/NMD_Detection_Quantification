@@ -110,8 +110,8 @@ def table1_body():
     part_n  = df.columns[1]      # "Participant n (total=415)"
     part_f  = df.columns[2]      # "Participant Female, n (%)"
     visit_n = df.columns[3]      # "Visit n (total=675)"
-    rule_above = {"Total CTL", "Total"}   # horizontal line before these rows
-    bold_rows  = {"Total"}                 # bold only the grand total
+    rule_above = {"CTL", "Total (NMD + CTL)"}   # horizontal line before these rows
+    bold_rows  = {"Total (NMD + CTL)"}           # bold only the grand total
 
     lines = [r"\begin{tabular}{lrrr}", r"\toprule",
              r"\textbf{Group} & \makecell[r]{\textbf{Participants}\\\textbf{(n)}} & "
@@ -138,15 +138,20 @@ def table2_body():
     lines = [r"\begin{tabular}{lccc}", r"\toprule",
              r"\textbf{Metric} & \textbf{NMD} & \textbf{CTL} & \textbf{Total} \\",
              r"\midrule"]
+    first = True
     for _, r in df.iterrows():
-        # section header rows carry an empty NMD/CTL/Total; render bold,
-        # unindented, and indent the measures beneath them.
+        # section header rows carry an empty NMD/CTL/Total; render unbolded,
+        # unindented, with a horizontal rule above each (except the first, which
+        # already sits under the header rule), and indent the measures beneath.
         if pd.isna(r["NMD"]) or str(r["NMD"]).strip() == "":
-            lines.append(rf"\textbf{{{fmt_label(r['Metric'])}}} & & & \\")
+            if not first:
+                lines.append(r"\midrule")
+            lines.append(rf"{fmt_label(r['Metric'])} & & & \\")
         else:
-            lines.append(rf"\quad {fmt_label(r['Metric'])} & "
+            lines.append(rf"\hspace{{1.5em}}{fmt_label(r['Metric'])} & "
                          f"{fmt_value(r['NMD'])} & {fmt_value(r['CTL'])} & "
                          f"{fmt_value(r['Total'])} \\\\")
+        first = False
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
 

@@ -544,7 +544,7 @@ def plot_fig3(df, threshold_z=None):
     XLO, XHI = allz.min() - 0.4, allz.max() + 0.6
     FILL = {"CTL": "#64748b", "NMD": "0.20"}
 
-    def draw_pair(axA, axB, d, la, lb):
+    def draw_pair(axA, axB, d, la, lb, ref_order=None):
         d = d.dropna(subset=["clinical_diagnosis", "severity_z"])
         ctl = d.loc[d.clinical_diagnosis == "CTL", "severity_z"].to_numpy()
         nmd = d.loc[d.clinical_diagnosis != "CTL", "severity_z"].to_numpy()
@@ -576,7 +576,17 @@ def plot_fig3(df, threshold_z=None):
         for sp in ["top", "right", "left"]:
             axA.spines[sp].set_visible(False)
         axA.spines["bottom"].set_color("0.75"); axA.tick_params(labelsize=13, colors="0.35"); axA.grid(False)
-        labs = [q for q in DIAG_ORDER if (d.clinical_diagnosis == q).any()]
+        present = [q for q in DIAG_ORDER if (d.clinical_diagnosis == q).any()]
+        if ref_order is None:
+            labs = present
+        else:
+            # Panel d follows panel b's (held-out test) diagnosis order, then
+            # appends diagnoses present only in the validation set at the bottom
+            # (scDMD, the symptomatic DMD carrier, pinned last of all).
+            extras = [q for q in present if q not in ref_order]
+            extras = ([q for q in extras if q != "scDMD"]
+                      + [q for q in extras if q == "scDMD"])
+            labs = [q for q in ref_order if q in present] + extras
         for i, q in enumerate(labs, 1):
             vals = d.loc[d.clinical_diagnosis == q, "severity_z"].to_numpy()
             axB.scatter(vals, i + rng.uniform(-0.22, 0.22, len(vals)), s=26, color=PALETTE[q],
@@ -595,12 +605,13 @@ def plot_fig3(df, threshold_z=None):
         for sp in ["top", "right", "left"]:
             axB.spines[sp].set_visible(False)
         axB.spines["bottom"].set_color("0.75"); axB.tick_params(labelsize=13, colors="0.35"); axB.grid(False)
+        return labs
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10.4),
                              gridspec_kw={"wspace": 0.42, "hspace": 0.42,
                                           "left": 0.15, "right": 0.985})
-    draw_pair(axes[0, 0], axes[0, 1], test, "a", "b")
-    draw_pair(axes[1, 0], axes[1, 1], oof, "c", "d")
+    test_order = draw_pair(axes[0, 0], axes[0, 1], test, "a", "b")
+    draw_pair(axes[1, 0], axes[1, 1], oof, "c", "d", ref_order=test_order)
     fig.canvas.draw()
     _cy = lambda ax: (ax.get_position().y0 + ax.get_position().y1) / 2
     fig.text(0.03, _cy(axes[0, 0]),
@@ -853,7 +864,7 @@ DIAG_FULL_NAMES = {
 
 CTL_VALUE   = "CTL"   # value stored in clinical_diagnosis for controls
 CTL_DISPLAY = "CTL"   # how controls are labelled in the output table
-SUMMARY_GROUPS = {"Total NMD", f"Total {CTL_DISPLAY}", "Total"}
+SUMMARY_GROUPS = {"Total NMD", CTL_DISPLAY, "Total (NMD + CTL)"}
 
 # sex is encoded numerically in build_table1 (0 = female, 1 = male),
 # (full_demographics_table.csv) or the legacy 0/1 numeric code.
@@ -871,8 +882,8 @@ def _make_row(label, subset):
 
 
 def build_rows(data):
-    """Total NMD header, then per-disease NMD subgroups (indented), then Total CTL
-    and the grand Total, for one dedup level. The leading spaces on subgroup labels
+    """Total NMD header, then per-disease NMD subgroups (indented), then CTL
+    and the grand Total (NMD + CTL), for one dedup level. The leading spaces on subgroup labels
     mark them as indented sub-rows for the renderer."""
     nmd = data[data["clinical_diagnosis"] != CTL_VALUE]
     ctl = data[data["clinical_diagnosis"] == CTL_VALUE]
@@ -882,8 +893,8 @@ def build_rows(data):
         sub = data[data["clinical_diagnosis"] == diag]
         if len(sub) > 0:
             rows.append(_make_row(f"  {DIAG_FULL_NAMES.get(diag, diag)}", sub))
-    rows.append(_make_row(f"Total {CTL_DISPLAY}", ctl))
-    rows.append(_make_row("Total", data))
+    rows.append(_make_row(CTL_DISPLAY, ctl))
+    rows.append(_make_row("Total (NMD + CTL)", data))
     return rows
 
 
