@@ -650,11 +650,14 @@ def plot_fig5_tft(df):
     ]
     # Place each annotation in the emptiest corner (off the regression diagonal)
     # so it never overlaps data points. (sx, sy, va, ha)
+    # All four annotations share the same anchor (top, right edge at 0.97) so
+    # their left edges line up across panels. The top ~15% headroom added below
+    # keeps them clear of the data even in the positive-slope (b, d) panels.
     stats_pos = [
-        (0.97, 0.96, "top", "right"),   # a  10m run speed  (neg slope) -> top-right
-        (0.03, 0.96, "top", "left"),    # b  TUG-cone       (pos slope) -> top-left
-        (0.97, 0.96, "top", "right"),   # c  10m walk speed (neg slope) -> top-right
-        (0.03, 0.96, "top", "left"),    # d  5xSTS          (pos slope) -> top-left
+        (0.97, 0.96, "top", "right"),   # a  10m run speed
+        (0.97, 0.96, "top", "right"),   # b  TUG-cone
+        (0.97, 0.96, "top", "right"),   # c  10m walk speed
+        (0.97, 0.96, "top", "right"),   # d  5xSTS
     ]
  
     fig, axes     = plt.subplots(2, 2, figsize=(8.2, 6.2), dpi=200)
@@ -843,8 +846,11 @@ OUT_DIR = None   # runs/<run-name>/results/tables (set in __main__)
 
 # Diagnosis rows, in display order. "CTL" is the data value for the control
 # group; it is shown as "TYP" (Typically Developing) in output.
-T1_DIAG_ORDER = ["DM", "FSHD", "CMT", "DMD", "scDMD", "GNE", "CM", "SMA",
-              "BMD", "LGMD", "SBMA", "ALS", "BM", "UNKNOWN"]
+# Match the diagnosis order shown in Fig 3b/d (test-present diseases first, then
+# the validation-only ones, scDMD last). BM/UNKNOWN are catch-alls kept at the
+# end (they render only if a participant carries them).
+T1_DIAG_ORDER = ["DM", "FSHD", "CMT", "DMD", "SMA", "BMD", "CM", "ALS",
+              "GNE", "LGMD", "SBMA", "scDMD", "BM", "UNKNOWN"]
 
 DIAG_FULL_NAMES = {
     "DM":      "Myotonic dystrophy (DM)",
@@ -864,7 +870,7 @@ DIAG_FULL_NAMES = {
 
 CTL_VALUE   = "CTL"   # value stored in clinical_diagnosis for controls
 CTL_DISPLAY = "CTL"   # how controls are labelled in the output table
-SUMMARY_GROUPS = {"Total NMD", CTL_DISPLAY, "Total (NMD + CTL)"}
+SUMMARY_GROUPS = {"NMD", CTL_DISPLAY, "Total (NMD + CTL)"}
 
 # sex is encoded numerically in build_table1 (0 = female, 1 = male),
 # (full_demographics_table.csv) or the legacy 0/1 numeric code.
@@ -882,13 +888,13 @@ def _make_row(label, subset):
 
 
 def build_rows(data):
-    """Total NMD header, then per-disease NMD subgroups (indented), then CTL
+    """NMD summary row, then per-disease NMD subgroups (indented), then CTL
     and the grand Total (NMD + CTL), for one dedup level. The leading spaces on subgroup labels
     mark them as indented sub-rows for the renderer."""
     nmd = data[data["clinical_diagnosis"] != CTL_VALUE]
     ctl = data[data["clinical_diagnosis"] == CTL_VALUE]
 
-    rows = [_make_row("Total NMD", nmd)]
+    rows = [_make_row("NMD", nmd)]
     for diag in T1_DIAG_ORDER:
         sub = data[data["clinical_diagnosis"] == diag]
         if len(sub) > 0:

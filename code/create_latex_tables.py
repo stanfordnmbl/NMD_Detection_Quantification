@@ -111,7 +111,7 @@ def table1_body():
     part_f  = df.columns[2]      # "Participant Female, n (%)"
     visit_n = df.columns[3]      # "Visit n (total=675)"
     rule_above = {"CTL", "Total (NMD + CTL)"}   # horizontal line before these rows
-    bold_rows  = {"Total (NMD + CTL)"}           # bold only the grand total
+    bold_rows  = {"NMD", "CTL", "Total (NMD + CTL)"}   # bold the summary rows
 
     lines = [r"\begin{tabular}{lrrr}", r"\toprule",
              r"\textbf{Group} & \makecell[r]{\textbf{Participants}\\\textbf{(n)}} & "
@@ -157,38 +157,28 @@ def table2_body():
 
 
 def table3_body():
-    """Supp. table 3: kinematic parameters grouped and indented by segment,
-    laid out in two columns across the page (left: Trunk then Pelvis;
-    right: Upper limb then Lower limb). Right/left pairs are listed once
-    (the "(R)"/"(L)" suffix is dropped)."""
-    import re
+    """Supp. table 3: kinematic parameters grouped and indented by body-part
+    segment. Columns: parameter description, OpenSim coordinate, and side
+    (L/R for bilateral parameters, -- for axial/pelvis). Bilateral rows stand
+    for two coordinates (base name + _r / _l); the expanded set is the 33
+    model inputs."""
     df = pd.read_csv(SUPP3_CSV)
+    seg_order = [s for s in ["Pelvis", "Trunk", "Lower limb", "Upper limb"]
+                 if s in set(df["Segment"])]
 
-    def seg_entries(seg_order):
-        entries = []
-        for i, seg in enumerate(seg_order):
-            if i > 0:
-                entries.append("")                     # blank spacer between segments
-            entries.append(rf"\textbf{{{fmt_label(seg)}}}")
-            seen = set()
-            for _, r in df[df["Segment"] == seg].iterrows():
-                name = re.sub(r"\s*\((?:R|L)\)$", "", str(r["Kinematic Parameter"]))
-                if name in seen:
-                    continue
-                seen.add(name)
-                entries.append(rf"\quad {fmt_label(name)}")
-        return entries
-
-    left  = seg_entries(["Trunk", "Lower limb"])
-    right = seg_entries(["Upper limb", "Pelvis"])
-    n = max(len(left), len(right))
-    left  += [""] * (n - len(left))
-    right += [""] * (n - len(right))
-
-    lines = [r"\begin{tabular}{@{}l@{\hspace{2.5em}}l@{}}", r"\toprule",
-             r"\multicolumn{2}{@{}l}{\textbf{Kinematic parameter}} \\", r"\midrule"]
-    for l, r in zip(left, right):
-        lines.append(f"{l} & {r} \\\\")
+    lines = [r"\begin{tabular}{lll}", r"\toprule",
+             r"\textbf{Body segment} & \textbf{OpenSim parameter} & "
+             r"\textbf{Side} \\", r"\midrule"]
+    for i, seg in enumerate(seg_order):
+        if i > 0:
+            lines.append(r"\midrule")
+        lines.append(rf"\textbf{{{fmt_label(seg)}}} & & \\")
+        for _, r in df[df["Segment"] == seg].iterrows():
+            coord = esc(r["OpenSim coordinate"])
+            if str(r["Side"]).strip() == "L/R":
+                coord = coord + r"\_\{r,l\}"
+            lines.append(rf"\quad {fmt_label(r['Kinematic Parameter'])} & "
+                         rf"\texttt{{{coord}}} & {esc(r['Side'])} \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
 

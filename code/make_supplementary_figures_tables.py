@@ -106,13 +106,21 @@ def make_supp_fig1_distributions():
         ctl = pp.loc[pp.grp == "CTL", c].dropna()
         both = pd.concat([nmd, ctl])
         lo, hi = np.nanmin(both), np.nanmax(both)
-        nbins = 16 if c == "brooke" else 22
-        bins = np.linspace(lo, hi, nbins)
+        if c == "brooke":
+            # Brooke is an ordinal score: integer-centered bins so each bar sits
+            # on a whole value, and integer ticks (2,3,4,5,6 — no half-steps).
+            ilo, ihi = int(np.floor(lo)), int(np.ceil(hi))
+            bins = np.arange(ilo - 0.5, ihi + 1.5, 1)
+        else:
+            bins = np.linspace(lo, hi, 22)
         ax.hist(nmd, bins=bins, density=False, alpha=0.6, color=COLORS["NMD"],
                 label=f"NMD ({len(nmd)} visits)", edgecolor="white", linewidth=0.3)
         ax.hist(ctl, bins=bins, density=False, alpha=0.6, color=COLORS["CTL"],
                 label=f"CTL ({len(ctl)} visits)", edgecolor="white", linewidth=0.3)
-        ax.set_title(lab, fontsize=11, color="0.2", pad=4)
+        # subplot label under the panel (acts as the x-axis title)
+        ax.set_xlabel(lab, fontsize=11, color="0.2")
+        if c == "brooke":
+            ax.set_xticks(np.arange(ilo, ihi + 1))
         ax.set_ylabel("Number of visits" if i % 3 == 0 else "", fontsize=9, color="0.4")
         ax.legend(frameon=False, fontsize=7.5, loc="best")
         for s in ["top", "right"]:
@@ -270,20 +278,25 @@ def _metric(name, yy, p):
 
 
 def compute_classification(aligned, y, ids):
-    # Section 1 — per-fold metric, mean ± SD across the 5 folds
+    # Both sections describe the five-model ENSEMBLE (the deployed predictor),
+    # with the same bootstrap-over-visits uncertainty method.
+    ens = {n: aligned[n]["prob_disease_mean"].astype(float).to_numpy() for n in MODELS}
+
+    # Section 1 — ensemble metric per model, with a 95% bootstrap CI over visits
     secA = []
     for m in ["AUROC", "AUPRC", "bACC"]:
         row = []
         for name in MODELS:
-            d = aligned[name]
-            vals = np.array([_metric(m, y, d[f"prob_disease_f{k}"].astype(float).to_numpy())
-                             for k in range(1, K + 1)
-                             if f"prob_disease_f{k}" in d.columns])
-            row.append(f"{vals.mean():.2f} ± {vals.std():.2f}")
+            def f(idx, pm=ens[name], m=m):
+                yy = y[idx]
+                if np.unique(yy).size < 2:
+                    return None
+                return _metric(m, yy, pm[idx])
+            d, lo, hi, _ = clustered_paired_boot(f, ids)
+            row.append(f"{d:.2f} [{lo:.2f}, {hi:.2f}]")
         secA.append((m, row))
 
     # Section 2 — difference in the ENSEMBLE metric vs the Transformer
-    ens = {n: aligned[n]["prob_disease_mean"].astype(float).to_numpy() for n in MODELS}
     secB = []
     for m in ["AUROC", "AUPRC", "bACC"]:
         row = ["reference"]
@@ -298,7 +311,7 @@ def compute_classification(aligned, y, ids):
             row.append(f"{d:+.2f} [{lo:+.2f}, {hi:+.2f}]{star}")
         secB.append((m, row))
 
-    return [("Test-set performance  (mean ± SD across 5 CV fold models)", secA),
+    return [("Ensemble test-set performance  [95% CI]", secA),
             ("Difference vs Transformer  [95% CI]", secB)]
 
 
@@ -328,7 +341,7 @@ def compute_convergent(aligned, ids):
             rowA.append(f"{sgn * r:.2f}")
         secA.append((f"{label}  (n={n})", rowA))
 
-        rowB, ids_ok = ["—"], ids[ok]
+        rowB, ids_ok = ["reference"], ids[ok]
         for name in ["SVM", "MLP"]:
             sa = sev[name].loc[ok, ["logit_severity_mean", col]].to_numpy()
             sb = sev["Transformer"].loc[ok, ["logit_severity_mean", col]].to_numpy()
@@ -343,8 +356,7 @@ def compute_convergent(aligned, ids):
             rowB.append(f"{d:+.2f} [{lo:+.2f}, {hi:+.2f}]{star}")
         secB.append((label, rowB))
 
-    return [("Spearman ρ with severity score (sign aligned: higher score = worse function)",
-             secA),
+    return [("Spearman ρ between clinical measures and severity score", secA),
             ("Δρ vs Transformer  [95% CI]", secB)]
 
 
@@ -365,55 +377,66 @@ def save_comparison_csv(sections, out_path):
 
 # (opensim_coordinate, human-readable name, segment). The opensim_coordinate is
 # checked against dataset.EXPECTED_COLUMNS so the list can't drift.
+# Each row is one kinematic parameter: (OpenSim coordinate, description, segment,
+# bilateral?). Bilateral parameters map to two OpenSim coordinates — the base name
+# suffixed "_r" and "_l" — and are listed once with side "L/R"; axial/pelvis
+# parameters map to a single coordinate (the name verbatim). The expanded set of
+# coordinates equals the 33 model inputs (dataset.EXPECTED_COLUMNS); see
+# kinematic_coord_codes() / the count check in save_kinematic_csv().
 KINEMATIC = [
-    ("pelvis_tilt",      "Pelvis tilt",                         "Pelvis"),
-    ("pelvis_list",      "Pelvis list",                         "Pelvis"),
-    ("pelvis_rotation",  "Pelvis rotation",                     "Pelvis"),
-    ("pelvis_tx",        "Pelvis anterior/posterior translation", "Pelvis"),
-    ("pelvis_ty",        "Pelvis vertical translation",         "Pelvis"),
-    ("pelvis_tz",        "Pelvis mediolateral translation",     "Pelvis"),
-    ("hip_flexion_r",    "Hip flexion (R)",                     "Lower limb"),
-    ("hip_adduction_r",  "Hip adduction (R)",                   "Lower limb"),
-    ("hip_rotation_r",   "Hip rotation (R)",                    "Lower limb"),
-    ("knee_angle_r",     "Knee flexion (R)",                    "Lower limb"),
-    ("ankle_angle_r",    "Ankle dorsiflexion (R)",              "Lower limb"),
-    ("subtalar_angle_r", "Subtalar angle (R)",                  "Lower limb"),
-    ("mtp_angle_r",      "MTP angle (R)",                       "Lower limb"),
-    ("hip_flexion_l",    "Hip flexion (L)",                     "Lower limb"),
-    ("hip_adduction_l",  "Hip adduction (L)",                   "Lower limb"),
-    ("hip_rotation_l",   "Hip rotation (L)",                    "Lower limb"),
-    ("knee_angle_l",     "Knee flexion (L)",                    "Lower limb"),
-    ("ankle_angle_l",    "Ankle dorsiflexion (L)",              "Lower limb"),
-    ("subtalar_angle_l", "Subtalar angle (L)",                  "Lower limb"),
-    ("mtp_angle_l",      "MTP angle (L)",                       "Lower limb"),
-    ("lumbar_extension", "Lumbar extension",                    "Trunk"),
-    ("lumbar_bending",   "Lumbar bending",                      "Trunk"),
-    ("lumbar_rotation",  "Lumbar rotation",                     "Trunk"),
-    ("arm_flex_r",       "Arm flexion (R)",                     "Upper limb"),
-    ("arm_add_r",        "Arm adduction (R)",                   "Upper limb"),
-    ("arm_rot_r",        "Arm rotation (R)",                    "Upper limb"),
-    ("elbow_flex_r",     "Elbow flexion (R)",                   "Upper limb"),
-    ("pro_sup_r",        "Forearm pronation (R)",               "Upper limb"),
-    ("arm_flex_l",       "Arm flexion (L)",                     "Upper limb"),
-    ("arm_add_l",        "Arm adduction (L)",                   "Upper limb"),
-    ("arm_rot_l",        "Arm rotation (L)",                    "Upper limb"),
-    ("elbow_flex_l",     "Elbow flexion (L)",                   "Upper limb"),
-    ("pro_sup_l",        "Forearm pronation (L)",               "Upper limb"),
+    ("pelvis_tilt",      "Pelvis tilt",                          "Pelvis",     False),
+    ("pelvis_list",      "Pelvis list",                          "Pelvis",     False),
+    ("pelvis_rotation",  "Pelvis rotation",                      "Pelvis",     False),
+    ("pelvis_tx",        "Pelvis anterior/posterior translation","Pelvis",     False),
+    ("pelvis_ty",        "Pelvis vertical translation",          "Pelvis",     False),
+    ("pelvis_tz",        "Pelvis mediolateral translation",      "Pelvis",     False),
+    ("lumbar_extension", "Lumbar extension",                     "Trunk",      False),
+    ("lumbar_bending",   "Lumbar bending",                       "Trunk",      False),
+    ("lumbar_rotation",  "Lumbar rotation",                      "Trunk",      False),
+    ("hip_flexion",      "Hip flexion",                          "Lower limb", True),
+    ("hip_adduction",    "Hip adduction",                        "Lower limb", True),
+    ("hip_rotation",     "Hip rotation",                         "Lower limb", True),
+    ("knee_angle",       "Knee flexion",                         "Lower limb", True),
+    ("ankle_angle",      "Ankle dorsiflexion",                   "Lower limb", True),
+    ("subtalar_angle",   "Subtalar angle",                       "Lower limb", True),
+    ("mtp_angle",        "MTP angle",                            "Lower limb", True),
+    ("arm_flex",         "Arm flexion",                          "Upper limb", True),
+    ("arm_add",          "Arm adduction",                        "Upper limb", True),
+    ("arm_rot",          "Arm rotation",                         "Upper limb", True),
+    ("elbow_flex",       "Elbow flexion",                        "Upper limb", True),
+    ("pro_sup",          "Forearm pronation/supination",         "Upper limb", True),
 ]
+
+# Segment order for the rendered table (top -> bottom).
+KINEMATIC_SEGMENTS = ["Pelvis", "Trunk", "Lower limb", "Upper limb"]
+
+
+def kinematic_coord_codes(rows=KINEMATIC):
+    """Expand the compact parameter list to the full OpenSim coordinate codes:
+    bilateral -> base+'_r', base+'_l'; otherwise the name verbatim."""
+    codes = []
+    for base, _desc, _seg, bilat in rows:
+        codes += ([f"{base}_r", f"{base}_l"] if bilat else [base])
+    return codes
 
 
 def save_kinematic_csv(rows, out_path):
-    # assert the list matches the model input
+    # assert the expanded coordinate set matches the model input (33 coords)
     try:
         from dataset import EXPECTED_COLUMNS
-        listed = [code for code, _r, _s in rows]
+        listed = kinematic_coord_codes(rows)
         miss, extra = set(EXPECTED_COLUMNS) - set(listed), set(listed) - set(EXPECTED_COLUMNS)
         if miss or extra:
             print(f"  [warn] kinematic table out of sync: missing={sorted(miss)} extra={sorted(extra)}")
+        elif len(listed) != len(EXPECTED_COLUMNS):
+            print(f"  [warn] coordinate count {len(listed)} != {len(EXPECTED_COLUMNS)} model inputs")
     except Exception as e:
         print(f"  [warn] could not verify against dataset.EXPECTED_COLUMNS: {e}")
-    pd.DataFrame([(r[1], r[2]) for r in rows],
-                 columns=["Kinematic Parameter", "Segment"]).to_csv(out_path, index=False)
+    # One row per parameter; bilateral parameters carry side "L/R", axial "--".
+    pd.DataFrame([(base, desc, "L/R" if bilat else "--", seg)
+                  for base, desc, seg, bilat in rows],
+                 columns=["OpenSim coordinate", "Kinematic Parameter", "Side", "Segment"]
+                 ).to_csv(out_path, index=False)
     print("saved", out_path)
 
 
@@ -430,7 +453,8 @@ def generate_supp_tables():
         compute_convergent(aligned, ids),
         os.path.join(OUTDIR, "supplementary_table2_model_convergent_validity.csv"))
 
-    print(f"\nSupp. Table 3 — kinematic parameters ({len(KINEMATIC)} model inputs)")
+    print(f"\nSupp. Table 3 — kinematic parameters "
+          f"({len(KINEMATIC)} parameters, {len(kinematic_coord_codes())} model inputs)")
     save_kinematic_csv(
         KINEMATIC,
         os.path.join(OUTDIR, "supplementary_table3_kinematic_parameters.csv"))
