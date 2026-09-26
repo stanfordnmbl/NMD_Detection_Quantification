@@ -88,10 +88,7 @@ nmd_opencap_wkdir                                           # root level working
 
 ### 3. Reproduce Paper Results
 
-In order to reproduce our paper results, you will need to run `make_figures_tables.py` and `make_supplementary_figures_tables.py`.
-
-Both these scripts accept `--help`, which explains the command line inputs each script takes. One such input is `--run-name`, which 
-allows uesers to select the training run from which they would like to generate the figures. Use `--run-name pretrained` to reproduce our exact paper results from the released models.
+All executable scripts (`make_figures_tables.py`, `make_supplementary_figures_tables.py`, and `train_models.py`) accept a `--help` flag, which explains the command line inputs each script takes. One such required input is `--run-name`, which allows uesers to select the training run from which they would like to generate the figures. Use `--run-name pretrained` to reproduce our exact paper results from the released models.
 
 There are two ways to run each script — choose one:
 
@@ -134,23 +131,22 @@ figures and tables for visual review (close one to see the next). All generated 
 Note that if you retrain the models yourself, your figures and statistics will differ slightly from those in the paper. Model training is stochastic (random weight initialization, batch shuffling, and GPU nondeterminism), so each run produces a slightly different model. These differences are small, well within the reported 95% confidence intervals, and do not change the conclusions.
 
 To retrain the models from scratch instead of using the released models, run `train_models.py`
-with a new run name (e.g. `retrain_1`). This will run cross-validation on the transformer,
-SVM, and MLP on one shared 5-fold GroupKFold split (grouped by participant), and enforces the
-same held-out-test set as the one used to train the models we've released. 
-freshly trained fold models, then regenerate the results with Option 1 above. 
+with a new `--run-name` field (e.g. `retrain_1`). This will run cross-validation on the transformer,
+SVM, and MLP on one shared 5-fold GroupKFold split (grouped by participant), enforces the
+same validation/held-out-test split we used train the models we've released, and saves all trained models to the `NMD_Detection_Quantification/runs/<run-name>/models`. 
+You can then run our `make_*` scripts to generate our same figures and tables using your freshly trained models. To do this, execute the following steps: 
 
 ```bash
-python train_models.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset  --demographics /path/to/datadir/nmd_opencap_participant_info.csv ---run-name <run-name>
+python train_models.py ---run-name <run-name> --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset
 ```
 
-This will take approiximately 2.5h to run on a single GPU and writes the freshly trained models 
-to `runs/<run-name>/models`. 
+This will take approiximately 2.5h to run on a single GPU and writes the freshly trained models to `NMD_Detection/Quantification/runs/<run-name>/models`. 
 
 Next, you can inference these models and rebuild every figure and table from your new models using the following:
 
 ```bash
-python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv --run-name <run-name>
-python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv ---run-name <run-name>
+python make_figures_tables.py --run-name <run-name> --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
+python make_supplementary_figures_tables.py --run-name <run-name> --demographics ../../datadir/nmd_opencap_participant_info.csvnmd_opencap_participant_info.csv --dataset ../../datadir/
 ```
 
 ## Citing This Work
