@@ -5,7 +5,7 @@ detection and quantification results from the following manuscript:
 
 > **Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data**
 
-> Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Jennifer L. Hicks, Scott Uhlrich, John W. Day, Constance de Monts, Tina Duong,  Scott L. Delp
+> Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Scott Uhlrich, John W. Day, Jennifer L. Hicks, Constance de Monts, Tina Duong, Scott L. Delp
 
 The Example Walkthrough has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
 
@@ -14,7 +14,7 @@ The Example Walkthrough has been tested on Mac (Apple Silicon), Linux, and Windo
 
 ### 1. Setup
 
-Install [(miniforge, miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [mamba](https://mamba.readthedocs.io/en/stable/installation/mamba-installation.html) Python environment manager. Note that if you use `mamba`, swap `conda` for `mamba` in the below code block.
+Install a Python environment manager. We recommend [(miniforge or miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
 
 Next, execute the following steps: 
 
