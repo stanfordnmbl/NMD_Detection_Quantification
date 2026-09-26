@@ -29,7 +29,7 @@ conda activate nmd-opencap
 The working directory will be organized as follows:
 
 ```
-NMD_OpenCap                       # root level working directory  
+nmd_opencap_wkdir                 # root level working directory  
 └── NMD_Detection_Quantification  # cloned GitHub repo 
     ├── README.md
     ├── environment.yml
@@ -60,27 +60,25 @@ zenodo_get -d 10.5281/zenodo.22309771
 unzip Neuromuscular_OpenCap_Dataset.zip -d .
 ```
 
-`datadir/` then contains the demographics CSV and the dataset––one folder per
-participant, each with per-visit, per-session OpenCap outputs. The pipeline reads
-the time series in `Kinematics/*.mot`.
+`nmd_opencap_wkdir/datadir/` now contains the demographics CSV (`nmd_opencap_participant_info.csv`) and the full, unzipped `Neuromuscular OpenCap Dataset`, so you have everything you need to run our code. See below for information on the dataset structure: 
 
 ```
-nmd_opencap_wkdir                            # root level working directory  
-├──NMD_Detection_Quantification              # cloned GitHub repo 
-└── datadir                                  # downloads from Zenodo 
-    ├── nmd_opencap_participant_info.csv     # demographics and train/test split for each (subid, visit) pair
-    ├── table1_diseases.csv                  # per-disease breakdown of participants in the Neuromuscular OpenCap Dataset
-    └── Neuromuscular_OpenCap_Dataset        # Dataset root 
+nmd_opencap_wkdir                                           # root level working directory  
+├──NMD_Detection_Quantification                             # cloned GitHub repo 
+└── datadir                                                 # downloads from Zenodo 
+    ├── nmd_opencap_participant_info.csv                    # demographics and train/test split for each (subid, visit) pair
+    ├── table1_diseases.csv                                 # per-disease breakdown of participants in the Neuromuscular OpenCap Dataset
+    └── Neuromuscular_OpenCap_Dataset                       # Dataset root 
         ├── sub-001
         │   └── visit-0
         │       ├── ses-1
-        │       │   ├── Kinematics            # OpenSim joint coordinates (model inputs)
+        │       │   ├── Kinematics                          # OpenSim kinematic timeseries ( machine learning model inputs)
         │       │   │   ├── sub-001_visit-0_ses-1_task-curls.mot
         │       │   │   ├── sub-001_visit-0_ses-1_task-jump.mot
         │       │   │   └── sub-001_visit-0_ses-1_task-toe_stand.mot
-        │       │   ├── Markers               # 3D marker trajectories (.trc)
-        │       │   ├── Model                 # scaled OpenSim musculoskeletal model (.osim)
-        │       │   └── sub-001_visit-0_ses-1_metadata.yaml
+        │       │   ├── Markers                              # 3D marker trajectories (.trc)
+        │       │   ├── Model                                # scaled OpenSim musculoskeletal model (.osim)
+        │       │   └── sub-001_visit-0_ses-1_metadata.yaml  # metadata dictionary detailing the camera information and OpenCap settings used for that session
         │       └── ses-2
         │           └── ...
         ├── sub-002
@@ -92,34 +90,31 @@ nmd_opencap_wkdir                            # root level working directory
 
 In order to reproduce our paper results, you will need to run `make_figures_tables.py` and `make_supplementary_figures_tables.py`.
 
-Both of these scripts accept `--help`, which explains which command line inputs to use, and require `--run-name` to 
-select which run under `runs/` to use. Use the **same** run name across training and figure/table
-generation. Use `--run-name pretrained` to reproduce our exact paper results with the released models.
+Both these scripts accept `--help`, which explains the command line inputs each script takes. One such input is `--run-name`, which 
+allows uesers to select the training run from which they would like to generate the figures. Use `--run-name pretrained` to reproduce our exact paper results from the released models.
 
 There are two ways to run each script — choose one:
 
 **Option 1 — inference the trained models and re-create our paper figures/tables (requires the full dataset downloaded and unzipped)**
-This option inferences each fold's model with its out-of-fold data, saves the prediction CSVs to `runs/pretrained/severity_csvs/`, 
-and builds the figures and tables:
+This option allows users to inference our trained models cross-validation, create and save the inference results to `nmd_opencap_wkdir/NMD_Detection_Quantification/runs/pretrained/severity_csvs/`, and builds the figures and tables. To run Option 1, execute the following steps (from `nmd_opencap_wkdir`):
 
 ```bash
-python make_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv --run-name pretrained
-python make_supplementary_figures_tables.py --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
+cd datadir/NMD_Detection_Quantification/code
+python make_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
+python make_supplementary_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csvnmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
 ```
 
 **Option 2 `--skip inference (only nmd_opencap_participant_info.csv required).** 
 This option builds the figures and tables straight from the CSVs generated from the already inferenced released models, 
-which are located in `runs/pretrained/severity_csvs/precomputed/`. This needs only the demographics CSV and allows you 
-to reproduce our paper results without having to download and unzip the Neuromuscular OpenCap Dataset. 
+which are located in `NMD_Detection_Quantification/runs/pretrained/severity_csvs/precomputed/`. This option requires only the demographics CSV (`nmd_opencap_participant_info.csv`) and allows you to reproduce our paper results without having to download and unzip the Neuromuscular OpenCap Dataset. 
+Ton run Option 2, execute the following steps (from `nmd_opencap_wkdir`):
 
 ```bash
-python make_figures_tables.py --skip-inference --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
-python make_supplementary_figures_tables.py --skip-inference --demographics /path/to/datadir/nmd_opencap_participant_info.csv  --run-name pretrained
+cd datadir/NMD_Detection_Quantification/code
+python make_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv  --skip-inference
+python make_supplementary_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv --skip-inference 
 ```
-
-Either way, each script prints its statistics to the terminal and opens the
-figures and tables for review (close one to see the next). Outputs land under
-`runs/pretrained/results/`:
+You can now navigate to `NMD_Detection_Quantification/runs/pretrained/results/` to see all figures and tables you have generated, which contains the following: 
 
 - **`figures/`** — **Fig 2** classification performance (AUROC/AUPRC/bACC, val vs test),
   **Fig 3** severity-score distributions (NMD vs CTL, held-out test + OOF),
@@ -128,7 +123,11 @@ figures and tables for review (close one to see the next). Outputs land under
   measures (NMD vs CTL); LaTeX/PDF/PNG under `latex_tables/`.
 - **`supp_figures/`** — **Supp. Fig 1** per-measure distributions (NMD vs CTL).
 - **`supp_tables/`** — **Supp. Tables 1–3**: transformer vs SVM vs MLP classification,
-  convergent validity, and the kinematic parameters; LaTeX under `latex_tables/`.
+  convergent validity, and the kinematic parameters; LaTeX under `latex_tables/`
+
+Regardless of which option you run, each script prints all statistics to the console and automatically displays the
+figures and tables for visual review (close one to see the next). All generated figures and tables will always land under
+`runs/<run-name>/results/`.
 
 ### 4. Re-train the models yoruself (OPTIONAL)
 
