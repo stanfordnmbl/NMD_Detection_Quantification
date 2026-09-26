@@ -95,7 +95,7 @@ allows uesers to select the training run from which they would like to generate 
 
 There are two ways to run each script — choose one:
 
-**Option 1 — inference the trained models and re-create our paper figures/tables (requires the full dataset downloaded and unzipped)**
+#### **Option 1: inference the trained models and re-create our paper figures/tables (requires the full dataset downloaded and unzipped)**
 This option allows users to inference our trained models cross-validation, create and save the inference results to `nmd_opencap_wkdir/NMD_Detection_Quantification/runs/pretrained/severity_csvs/`, and builds the figures and tables. To run Option 1, execute the following steps (from `nmd_opencap_wkdir`):
 
 ```bash
@@ -104,7 +104,7 @@ python make_figures_tables.py --run-name pretrained --demographics ../../datadir
 python make_supplementary_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csvnmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
 ```
 
-**Option 2 `--skip inference (only nmd_opencap_participant_info.csv required).** 
+#### **Option 2: --skip inference (only nmd_opencap_participant_info.csv required).** 
 This option builds the figures and tables straight from the CSVs generated from the already inferenced released models, 
 which are located in `NMD_Detection_Quantification/runs/pretrained/severity_csvs/precomputed/`. This option requires only the demographics CSV (`nmd_opencap_participant_info.csv`) and allows you to reproduce our paper results without having to download and unzip the Neuromuscular OpenCap Dataset. 
 Ton run Option 2, execute the following steps (from `nmd_opencap_wkdir`):
