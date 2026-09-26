@@ -77,7 +77,17 @@ def _load_demo(path=None):
 # ── Config ─────────────────────────────────────────────────────────────────────
  
 K       = 5
-METRICS = ["AUROC", "AUPRC", "bACC"]
+METRICS = ["AUROC", "AUPRC", "bACC", "Sensitivity", "Specificity"]
+
+
+def _sens_spec(yy, pred):
+    """Sensitivity (TPR) and specificity (TNR) from binary labels/predictions."""
+    yy = np.asarray(yy); pred = np.asarray(pred)
+    tp = int(((pred == 1) & (yy == 1)).sum()); fn = int(((pred == 0) & (yy == 1)).sum())
+    tn = int(((pred == 0) & (yy == 0)).sum()); fp = int(((pred == 1) & (yy == 0)).sum())
+    sens = tp / (tp + fn) if (tp + fn) else np.nan
+    spec = tn / (tn + fp) if (tn + fp) else np.nan
+    return sens, spec
  
 # All four TFT columns — participants must have ALL of these to be included in Fig 4
 TFT_COLS = ["tmt_run_time", "tug_cone_time", "tmt_walk_time", "fsts_time"]
@@ -374,11 +384,13 @@ def compute_fold_metrics(thr_star, y_oof, p_oof, df):
                     allow_pickle=True)
         y = np.asarray(d["y"]).reshape(-1)
         p = np.asarray(d["p"]).reshape(-1)
+        _sn, _sp = _sens_spec(y, (p >= thr_star).astype(int))
         val_rows.append({
             "fold":  fold,
             "AUROC": roc_auc_score(y, p) if len(np.unique(y)) > 1 else np.nan,
             "AUPRC": average_precision_score(y, p) if len(np.unique(y)) > 1 else np.nan,
             "bACC":  balanced_accuracy_score(y, (p >= thr_star).astype(int)),
+            "Sensitivity": _sn, "Specificity": _sp,
         })
     val_df = pd.DataFrame(val_rows)
  
@@ -388,11 +400,13 @@ def compute_fold_metrics(thr_star, y_oof, p_oof, df):
     test_rows = []
     for fold in folds_in:
         p = df[f"prob_disease_f{fold}"].astype(float).to_numpy()
+        _sn, _sp = _sens_spec(y_true, (p >= thr_star).astype(int))
         test_rows.append({
             "fold":  fold,
             "AUROC": roc_auc_score(y_true, p) if len(np.unique(y_true)) > 1 else np.nan,
             "AUPRC": average_precision_score(y_true, p) if len(np.unique(y_true)) > 1 else np.nan,
             "bACC":  balanced_accuracy_score(y_true, (p >= thr_star).astype(int)),
+            "Sensitivity": _sn, "Specificity": _sp,
         })
     test_df    = pd.DataFrame(test_rows)
     p_test_ens = df["prob_disease_mean"].astype(float).to_numpy()
@@ -409,9 +423,12 @@ def _metric_ci(y, p, thr, ids=None, n_boot=5000, seed=0):
     the continuous score; bACC thresholds it at thr."""
     y = np.asarray(y); p = np.asarray(p)
     def _m(yy, pp):
+        pred = (pp >= thr).astype(int)
+        sens, spec = _sens_spec(yy, pred)
         return {"AUROC": roc_auc_score(yy, pp),
                 "AUPRC": average_precision_score(yy, pp),
-                "bACC":  balanced_accuracy_score(yy, (pp >= thr).astype(int))}
+                "bACC":  balanced_accuracy_score(yy, pred),
+                "Sensitivity": sens, "Specificity": spec}
     point = _m(y, p)
     rng = np.random.default_rng(seed)
     if ids is not None:
@@ -434,16 +451,40 @@ def _metric_ci(y, p, thr, ids=None, n_boot=5000, seed=0):
                 float(np.percentile(boots[m], 97.5))) for m in METRICS}
 
 
+def save_fold_metrics_table(val_df, y_true, p_test_ens, thr_star, out_dir):
+    """Supplementary table: per-fold out-of-fold (OOF) validation metrics, their
+    mean +/- SD across folds (fold-to-fold stability), and the held-out-test
+    ensemble with 95% bootstrap CI. One column per metric."""
+    os.makedirs(out_dir, exist_ok=True)
+    rows = []
+    for _, r in val_df.sort_values("fold").iterrows():
+        rows.append({"Split": f"OOF fold {int(r['fold'])}",
+                     **{m: f"{r[m]:.2f}" for m in METRICS}})
+    rows.append({"Split": "OOF mean ± SD",
+                 **{m: f"{val_df[m].mean():.2f} ± {val_df[m].std():.2f}" for m in METRICS}})
+    ci = _metric_ci(y_true, p_test_ens, thr_star, ids=None, seed=2)
+    rows.append({"Split": "Held-out test (ensemble) [95% CI]",
+                 **{m: f"{ci[m][0]:.2f} [{ci[m][1]:.2f}, {ci[m][2]:.2f}]" for m in METRICS}})
+    out  = pd.DataFrame(rows)[["Split"] + METRICS]
+    path = os.path.join(out_dir, "supplementary_table_fold_metrics.csv")
+    out.to_csv(path, index=False)
+    print("saved", path)
+    return path
+
+
 def plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star):
     # Panel a reports the SAME predictors as panel b and the rest of the paper:
     # pooled-OOF validation and the ensemble-averaged test set. CIs are 95%
     # bootstrap intervals resampled over visits (same for validation and test).
     val_ci  = _metric_ci(y_oof,  p_oof,      thr_star, ids=None, seed=1)
     test_ci = _metric_ci(y_true, p_test_ens, thr_star, ids=None, seed=2)
+    # Main-figure panel a shows the three headline metrics; sensitivity and
+    # specificity are reported in the supplementary per-fold table instead.
+    fig_metrics = ["AUROC", "AUPRC", "bACC"]
     s = pd.DataFrame([{"Metric": m,
                        "val_mean":  val_ci[m][0],  "val_lo":  val_ci[m][1],  "val_hi":  val_ci[m][2],
                        "test_mean": test_ci[m][0], "test_lo": test_ci[m][1], "test_hi": test_ci[m][2]}
-                      for m in METRICS])
+                      for m in fig_metrics])
     print(f"\n  {'ensemble / pooled-OOF':<24}{'Val [95% CI]':<24}Test [95% CI]")
     for _, r in s.iterrows():
         val_cell  = f"{r['val_mean']:.3f} [{r['val_lo']:.3f}-{r['val_hi']:.3f}]"
@@ -456,7 +497,7 @@ def plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star):
     auprc_test = average_precision_score(y_true, p_test_ens)
  
     fig, (axA, axB) = plt.subplots(1, 2, figsize=(12.0, 4.2), dpi=200)
-    x = np.arange(len(METRICS)); w = 0.34
+    x = np.arange(len(fig_metrics)); w = 0.34
  
     axA.bar(x-w/2, s["val_mean"],  width=w, color=VALID_COLOR, alpha=0.92,
             label="Validation")
@@ -468,7 +509,7 @@ def plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star):
     axA.errorbar(x+w/2, s["test_mean"],
                  yerr=[s["test_mean"]-s["test_lo"], s["test_hi"]-s["test_mean"]],
                  fmt="none", ecolor="0.25", elinewidth=1.0, capsize=4, zorder=5)
-    axA.set_xticks(x); axA.set_xticklabels(METRICS, fontsize=12)
+    axA.set_xticks(x); axA.set_xticklabels(fig_metrics, fontsize=12)
     axA.set_ylim(0, 1.01); axA.set_ylabel("Score", fontsize=10)
     axA.set_title("Classification performance", fontsize=14, y=1.17, color="0.2")
     style_axes(axA, "y")
@@ -818,6 +859,8 @@ def generate_figures():
     print(f"\n{'-'*66}\n  FIGURE 2  -  Classification performance\n{'-'*66}")
     val_df, test_df, y_true, p_test_ens = compute_fold_metrics(thr_star, y_oof, p_oof, df)
     plot_fig2(y_oof, p_oof, y_true, p_test_ens, thr_star)
+    save_fold_metrics_table(val_df, y_true, p_test_ens, thr_star,
+                            os.path.join(os.path.dirname(FIG_DIR), "supp_tables"))
 
     print(f"\n{'-'*66}\n  FIGURE 3  -  Severity score distribution (held-out test + OOF)\n{'-'*66}")
     plot_fig3(df, threshold_z)
@@ -1185,6 +1228,8 @@ if __name__ == "__main__":
     # Render the main tables to LaTeX/PDF/PNG automatically (no separate step).
     import create_latex_tables as clt
     clt.render_main_tables(OUT_DIR)
+    _supp_dir = os.path.join(os.path.dirname(OUT_DIR), "supp_tables")
+    clt.render_fold_metrics(_supp_dir)
 
     # View the figures + rendered table images one at a time: each opens in a
     # window and CLOSING it advances to the next (the paper1_code plt.show() flow).

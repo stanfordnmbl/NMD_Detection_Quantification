@@ -208,6 +208,34 @@ def comparison_body(csv_path):
     return "\n".join(lines)
 
 
+def foldmetrics_body(csv_path):
+    """Supplementary per-fold table: Split + one column per metric. A rule is
+    drawn before the summary rows (mean ± SD, held-out-test ensemble)."""
+    df = pd.read_csv(csv_path)
+    cols = list(df.columns)                          # Split, then metric columns
+    align = "l" + "c" * (len(cols) - 1)
+    header = " & ".join(rf"\textbf{{{fmt_text(c)}}}" for c in cols) + r" \\"
+    lines = [rf"\begin{{tabular}}{{{align}}}", r"\toprule", header, r"\midrule"]
+    for _, r in df.iterrows():
+        split = str(r["Split"])
+        if split.startswith("OOF mean") or split.startswith("Held-out"):
+            lines.append(r"\midrule")
+        lines.append(" & ".join(fmt_text(r[c]) for c in cols) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
+def render_fold_metrics(supp_tables_dir):
+    """Render the per-fold metrics supplementary table (if its CSV is present)."""
+    csv = os.path.join(supp_tables_dir, "supplementary_table_fold_metrics.csv")
+    if not os.path.isfile(csv):
+        print(f"  [skip latex] missing fold-metrics CSV: {csv}")
+        return
+    bodies = {"supp_table_fold_metrics": ("tab:supp-foldmetrics", foldmetrics_body(csv))}
+    _render(bodies, os.path.join(supp_tables_dir, "latex_tables"),
+            "supp_foldmetrics_latex.tex")
+
+
 def _wrap_section(sec):
     """Split a long section title over two lines for the multirow cell."""
     sec = str(sec).strip()
