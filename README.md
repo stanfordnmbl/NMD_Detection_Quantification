@@ -19,7 +19,7 @@ Install a Python environment manager. We recommend [miniforge or miniconda.](htt
 Next, execute the following steps: 
 
 ```bash
-mkdir $PWD/NMD_OpenCap
+mkdir $PWD/nmd_opencap_wkdir
 git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
 cd NMD_Detection_Quantification
 conda env create -f environment.yml -n nmd-opencap
@@ -47,10 +47,11 @@ NMD_OpenCap                       # root level working directory
 The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
 are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
 Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes with the environment). 
-If you do not want to download the entire dataset, you can reproduce our results using the pre-inferenced CSVs. To do this, download only `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage, save that file to your `datadir`, and skip to the instructions for **Option 2** in Section 3 below. 
+
+**If you do not want to download the entire dataset,** you can reproduce our results using the pre-inferenced CSVs. To do this, download only `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage, save that file to your `datadir`, and skip to the instructions for **Option 2** in Section 3 below. 
 
 
-To download the entire dataset, navigate to the `NMD_OpenCap` directory you created above and execute the following: 
+To download the entire dataset, navigate to the `nmd_opencap_wkdir` directory you created above and execute the following: 
 
 ```bash
 mkdir $PWD/datadir
@@ -64,7 +65,7 @@ participant, each with per-visit, per-session OpenCap outputs. The pipeline read
 the time series in `Kinematics/*.mot`.
 
 ```
-NMD_OpenCap                                  # root level working directory  
+nmd_opencap_wkdir                            # root level working directory  
 ├──NMD_Detection_Quantification              # cloned GitHub repo 
 └── datadir                                  # downloads from Zenodo 
     ├── nmd_opencap_participant_info.csv     # demographics and train/test split for each (subid, visit) pair
