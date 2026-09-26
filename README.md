@@ -85,7 +85,7 @@ NMD_OpenCap                                  # root level working directory
         ├── sub-002
         │   └── ...
         └── sub-415                           # 415 participants
-    ```
+```
 
 ### 3. Reproduce Paper Results
 
