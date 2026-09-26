@@ -88,8 +88,7 @@ NMD_OpenCap                                  # root level working directory
         └── sub-415                           # 415 participants
     ```
 
-> If you only plan to use **Option 2** below (`--skip-inference`), the only file you need to download from Zenodo is
-> `nmd_opencap_participant_info.csv`.
+If you only plan to use **Option 2** below (`--skip-inference`), the only file you need to download from Zenodo is `nmd_opencap_participant_info.csv`.
 
 ### 3. Reproduce Paper Results
 
