@@ -7,10 +7,10 @@ detection and quantification results from the following manuscript:
 
 > Sydney Covitz, Parker S. Ruth, Shelby Vogt-Domke, Carmichael Ong, Tian Tan, Audrey Chun, Sarah Ismail, Lin Karman, Julie Muccini, Shannon Li, Melina Rogers, Scott Uhlrich, John W. Day, Jennifer L. Hicks, Constance de Monts, Tina Duong, Scott L. Delp
 
-The Example Walkthrough has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
+
 
 ## Example Walkthrough 
-*requires environment management (we recommend miniforge or mamba)
+The following walkthrough has been tested on Mac (Apple Silicon), Linux, and Windows machines. 
 
 ### 1. Setup
 
