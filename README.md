@@ -14,12 +14,12 @@ The following walkthrough has been tested on Mac (Apple Silicon), Linux, and Win
 
 ### 1. Setup
 
-Install a Python environment manager. We recommend [(miniforge or miniconda,](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
+Install a Python environment manager. We recommend [miniforge or miniconda.](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html)
 
 Next, execute the following steps: 
 
 ```bash
-cd [path/to/empty/working/directory]
+mkdir $PWD/NMD_OpenCap
 git clone git@github.com:stanfordnmbl/NMD_Detection_Quantification.git
 cd NMD_Detection_Quantification
 conda env create -f environment.yml -n nmd-opencap
@@ -29,16 +29,17 @@ conda activate nmd-opencap
 The working directory will be organized as follows:
 
 ```
-NMD_Detection_Quantification
-├── README.md
-├── environment.yml
-├── code                     # all scripts
-└── runs
-    └── pretrained
-        ├── models           # released, trained fold models
-        ├── severity_csvs    # prediction CSVs (precomputed/ ships with the repo;
-        │                    # the inference option writes fresh CSVs here)
-        └── results          # figures + tables (written by the make_* scripts)
+NMD_OpenCap                       # root level working directory  
+└── NMD_Detection_Quantification  # cloned GitHub repo 
+    ├── README.md
+    ├── environment.yml
+    ├── code                       # all scripts
+    └── runs
+        └── pretrained
+            ├── models             # released, trained fold models
+            ├── severity_csvs      # prediction CSVs (precomputed/ ships with the repo;
+            │                      # the inference option writes fresh CSVs here)
+            └── results            # figures + tables (will get written after you run the make_* scripts)
 ```
 
 ### 2. Download Data
@@ -46,16 +47,17 @@ NMD_Detection_Quantification
 The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
 are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
 Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes with the environment). 
-Alternatively, if you do not want to downoad the entire dataset, you can reproduce our results using the pre-inferenced CSVs 
+Alternatively, if you do not want to download the entire dataset, you can reproduce our results using the pre-inferenced CSVs 
 (see Section 3 Option 2 below) and just download the `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage 
 and save that to your `datadir`.
 
+Navigate to the `NMD_OpenCap` directory you created above and execute the following: 
+
 ```bash
-mkdir datadir
+mkdir $PWD/datadir
 cd datadir
-zenodo_get -d <ZENODO_DOI>
-cd ..
-unzip datadir/Neuromuscular_OpenCap_Dataset.zip -d datadir
+zenodo_get -d 10.5281/zenodo.22309771
+unzip Neuromuscular_OpenCap_Dataset.zip -d .
 ```
 
 `datadir/` then contains the demographics CSV and the dataset––one folder per
@@ -63,28 +65,31 @@ participant, each with per-visit, per-session OpenCap outputs. The pipeline read
 the time series in `Kinematics/*.mot`.
 
 ```
-datadir
-├── nmd_opencap_participant_info.csv     # labels + train/test split (subid, visit)
-└── Neuromuscular_OpenCap_Dataset
-    ├── sub-001
-    │   └── visit-0
-    │       ├── ses-1
-    │       │   ├── Kinematics            # OpenSim joint coordinates (model inputs)
-    │       │   │   ├── sub-001_visit-0_ses-1_task-curls.mot
-    │       │   │   ├── sub-001_visit-0_ses-1_task-jump.mot
-    │       │   │   └── sub-001_visit-0_ses-1_task-toe_stand.mot
-    │       │   ├── Markers               # 3D marker trajectories (.trc)
-    │       │   ├── Model                 # scaled OpenSim musculoskeletal model (.osim)
-    │       │   └── sub-001_visit-0_ses-1_metadata.yaml
-    │       └── ses-2
-    │           └── ...
-    ├── sub-002
-    │   └── ...
-    └── sub-415                           # 415 participants
-```
+NMD_OpenCap                                  # root level working directory  
+├──NMD_Detection_Quantification              # cloned GitHub repo 
+└── datadir                                  # downloads from Zenodo 
+    ├── nmd_opencap_participant_info.csv     # demographics and train/test split for each (subid, visit) pair
+    ├── table1_diseases.csv                  # per-disease breakdown of participants in the Neuromuscular OpenCap Dataset
+    └── Neuromuscular_OpenCap_Dataset        # Dataset root 
+        ├── sub-001
+        │   └── visit-0
+        │       ├── ses-1
+        │       │   ├── Kinematics            # OpenSim joint coordinates (model inputs)
+        │       │   │   ├── sub-001_visit-0_ses-1_task-curls.mot
+        │       │   │   ├── sub-001_visit-0_ses-1_task-jump.mot
+        │       │   │   └── sub-001_visit-0_ses-1_task-toe_stand.mot
+        │       │   ├── Markers               # 3D marker trajectories (.trc)
+        │       │   ├── Model                 # scaled OpenSim musculoskeletal model (.osim)
+        │       │   └── sub-001_visit-0_ses-1_metadata.yaml
+        │       └── ses-2
+        │           └── ...
+        ├── sub-002
+        │   └── ...
+        └── sub-415                           # 415 participants
+    ```
 
-> If you only plan to use **Option 2** below (`--skip-inference`), you just need
-> `nmd_opencap_participant_info.csv` (not the dataset).
+> If you only plan to use **Option 2** below (`--skip-inference`), the only file you need to download from Zenodo is
+> `nmd_opencap_participant_info.csv`.
 
 ### 3. Reproduce Paper Results
 
