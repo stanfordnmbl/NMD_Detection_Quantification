@@ -47,11 +47,10 @@ NMD_OpenCap                       # root level working directory
 The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
 are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
 Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes with the environment). 
-Alternatively, if you do not want to download the entire dataset, you can reproduce our results using the pre-inferenced CSVs 
-(see Section 3 Option 2 below) and just download the `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage 
-and save that to your `datadir`.
+If you do not want to download the entire dataset, you can reproduce our results using the pre-inferenced CSVs. To do this, download only `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage, save that file to your `datadir`, and skip to the instructions for **Option 2** in Section 3 below. 
 
-Navigate to the `NMD_OpenCap` directory you created above and execute the following: 
+
+To download the entire dataset, navigate to the `NMD_OpenCap` directory you created above and execute the following: 
 
 ```bash
 mkdir $PWD/datadir
@@ -87,8 +86,6 @@ NMD_OpenCap                                  # root level working directory
         │   └── ...
         └── sub-415                           # 415 participants
     ```
-
-If you only plan to use **Option 2** below (`--skip-inference`), the only file you need to download from Zenodo is `nmd_opencap_participant_info.csv`.
 
 ### 3. Reproduce Paper Results
 
