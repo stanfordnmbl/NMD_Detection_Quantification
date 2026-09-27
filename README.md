@@ -72,7 +72,7 @@ nmd_opencap_wkdir                                           # root level working
         ├── sub-001
         │   └── visit-0
         │       ├── ses-1
-        │       │   ├── Kinematics                          # OpenSim kinematic timeseries ( machine learning model inputs)
+        │       │   ├── Kinematics                          # OpenSim kinematic time series ( machine learning model inputs)
         │       │   │   ├── sub-001_visit-0_ses-1_task-curls.mot
         │       │   │   ├── sub-001_visit-0_ses-1_task-jump.mot
         │       │   │   └── sub-001_visit-0_ses-1_task-toe_stand.mot
@@ -96,7 +96,7 @@ There are two ways to run each script — choose one:
 This option allows users to inference our trained models cross-validation, create and save the inference results to `nmd_opencap_wkdir/NMD_Detection_Quantification/runs/pretrained/severity_csvs/`, and builds the figures and tables. To run Option 1, execute the following steps (from `nmd_opencap_wkdir`):
 
 ```bash
-cd datadir/NMD_Detection_Quantification/code
+cd NMD_Detection_Quantification/code
 python make_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
 python make_supplementary_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csvnmd_opencap_participant_info.csv --dataset ../../datadir/Neuromuscular_OpenCap_Dataset
 ```
@@ -107,7 +107,7 @@ which are located in `NMD_Detection_Quantification/runs/pretrained/severity_csvs
 Ton run Option 2, execute the following steps (from `nmd_opencap_wkdir`):
 
 ```bash
-cd datadir/NMD_Detection_Quantification/code
+cd NMD_Detection_Quantification/code
 python make_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv  --skip-inference
 python make_supplementary_figures_tables.py --run-name pretrained --demographics ../../datadir/nmd_opencap_participant_info.csv --skip-inference 
 ```
@@ -134,10 +134,11 @@ To retrain the models from scratch instead of using the released models, run `tr
 with a new `--run-name` field (e.g. `retrain_1`). This will run cross-validation on the transformer,
 SVM, and MLP on one shared 5-fold GroupKFold split (grouped by participant), enforces the
 same validation/held-out-test split we used train the models we've released, and saves all trained models to the `NMD_Detection_Quantification/runs/<run-name>/models`. 
-You can then run our `make_*` scripts to generate our same figures and tables using your freshly trained models. To do this, execute the following steps: 
+You can then run our `make_*` scripts to generate our same figures and tables using your freshly trained models. To do this, execute the following steps (from `nmd_opencap_wkdir`): 
 
 ```bash
-python train_models.py ---run-name <run-name> --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset
+cd NMD_Detection_Quantification/code
+python train_models.py --run-name <run-name> --demographics ../../datadir/nmd_opencap_participant_info.csv --dataset /path/to/datadir/Neuromuscular_OpenCap_Dataset
 ```
 
 This will take approiximately 2.5h to run on a single GPU and writes the freshly trained models to `NMD_Detection/Quantification/runs/<run-name>/models`. 
@@ -151,8 +152,8 @@ python make_supplementary_figures_tables.py --run-name <run-name> --demographics
 
 ## Citing This Work
 
-We invite you to cite both our [preprint](TODO ADD LINK) and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
+We invite you to cite both our preprint and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
 
 > Covitz, S., et al. Neuromuscular OpenCap Dataset. *Zenodo https://doi.org/https://doi.org/10.5281/zenodo.22309771 (2026). 
 
-> Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. *bioRxiv (2026). doi: [TODO: ADD bioRxiv DOI]
+> Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. *bioRxiv (2026).
