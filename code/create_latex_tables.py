@@ -167,7 +167,7 @@ def table3_body():
                  if s in set(df["Segment"])]
 
     lines = [r"\begin{tabular}{lll}", r"\toprule",
-             r"\textbf{Body segment} & \textbf{OpenSim parameter} & "
+             r"\textbf{Kinematic parameter} & \textbf{OpenSim coordinate} & "
              r"\textbf{Side} \\", r"\midrule"]
     for i, seg in enumerate(seg_order):
         if i > 0:
