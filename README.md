@@ -45,7 +45,7 @@ nmd_opencap_wkdir                 # root level working directory
 ### 2. Download Data
 
 The de-identified Neuromuscular OpenCap Dataset and demographics CSV (nmd_opencap_participant_info.csv) 
-are hosted on Zenodo at [this link](https://zenodo.org/records/22309771?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjVhOGJkYjBjLTM5NjYtNGNmMC1hNjhiLTk0OWZhZTUzOTFhMyIsImRhdGEiOnt9LCJyYW5kb20iOiIwZTMyNWUwMmFiMDRkNDM5YjgxZWI1ZThlODFlZDU3MiJ9.aJ1J91c7oGUjjF51gsIvPU7ynx-liDBoSPOAy0qMfQ-wvkzsoZSa6emVkML0dxpeFJfMAlEhcKgD3ZddChpJMw). 
+are hosted on Zenodo at [this link](https://doi.org/10.5281/zenodo.22309771). 
 Download them into a `datadir/` folder and unzip the dataset (`zenodo_get` comes with the environment). 
 
 **If you do not want to download the entire dataset,** you can reproduce our results using the pre-inferenced CSVs. To do this, download only `nmd_opencap_participant_info.csv` directly from the Zenodo dataset webpage, save that file to your `datadir`, and skip to the instructions for **Option 2** in Section 3 below. 
@@ -154,6 +154,6 @@ python make_supplementary_figures_tables.py --run-name <run-name> --demographics
 
 We invite you to cite both our preprint and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
 
-> Covitz, S., et al. Neuromuscular OpenCap Dataset. *Zenodo https://doi.org/https://doi.org/10.5281/zenodo.22309771 (2026). 
+> Covitz, S., et al. Neuromuscular OpenCap Dataset. *Zenodo https://doi.org/10.5281/zenodo.22309771 (2026). 
 
 > Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. *bioRxiv (2026).
