@@ -154,6 +154,6 @@ python make_supplementary_figures_tables.py --run-name <run-name> --demographics
 
 We invite you to cite both our preprint and our [Zenodo dataset](https://doi.org/10.5281/zenodo.22309771).
 
-> Covitz, S., et al. Neuromuscular OpenCap Dataset. *Zenodo https://doi.org/10.5281/zenodo.22309771 (2026). 
+> Covitz, S., et al. Neuromuscular OpenCap Dataset. *Zenodo* doi: [10.5281/zenodo.22309771](https://doi.org/10.5281/zenodo.22309771) (2026). 
 
-> Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. *bioRxiv (2026).
+> Covitz, S., et al. Deep learning models detect neuromuscular disease and quantify functional impairment from video-derived biomechanics data. *bioRxiv* [10.64898/2026.09.30.754736](https://doi.org/10.64898/2026.09.30.754736) (2026).
